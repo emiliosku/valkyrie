@@ -22,3 +22,9 @@ unity/Assets/TextMesh Pro/Examples & Extras.meta
 /unity/ProjectSettings/PackageManagerSettings.asset
 /unity/.vsconfig
 /docs/superpowers/
+# Unity licenses - never commit
+Unity_lic.ulf
+Unity_v*.alf
+*.alf
+.env
+/build/

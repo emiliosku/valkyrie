@@ -1,0 +1,12 @@
+# Never bake secrets or build artifacts
+Unity_lic.ulf
+Unity_v*.alf
+*.alf
+.env
+build/
+Library/
+Temp/
+obj/
+*.log
+.git
+.gitignore
