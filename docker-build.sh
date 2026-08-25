@@ -1,21 +1,32 @@
 #!/bin/bash
 set -e
-# Valkyrie Docker Builder wrapper - license passed at startup via volume mount, not baked
+# License and source stay outside the image. Only build artifacts are written to the host.
 PROJECT_ROOT="$(cd "$(dirname "$0")" && pwd)"
-ULF="$PROJECT_ROOT/Unity_lic.ulf"
+ULF="${UNITY_LICENSE_PATH:-$HOME/.local/share/unity3d/Unity/Unity_lic.ulf}"
+BUILD_DIR="${BUILD_DIR:-$PROJECT_ROOT/build}"
+
 if [ ! -f "$ULF" ]; then
-  echo "ERROR: $ULF not found. Place your Personal Unity_lic.ulf there (chmod 600) or mount via -v"
-  echo "Generate via Unity Hub -> Get Personal license -> cp ~/.local/share/unity3d/Unity/Unity_lic.ulf $ULF"
+  echo "ERROR: Unity license not found: $ULF"
+  echo "Activate a Personal license in Unity Hub or set UNITY_LICENSE_PATH to its .ulf file."
   exit 1
 fi
+
+mkdir -p "$BUILD_DIR"
 echo "Using ULF: $ULF ($(wc -c < "$ULF") bytes)"
-echo "Building image valkyrie-builder:2019.4.41f1-android ..."
-docker build -f Dockerfile.builder -t valkyrie-builder:2019.4.41f1-android "$PROJECT_ROOT"
-echo "Running build (Linux+Android) with ULF mounted read-only..."
+echo "Building image valkyrie-builder:2019.4.41f1-linux-android ..."
+docker build -f Dockerfile.builder -t valkyrie-builder:2019.4.41f1-linux-android "$PROJECT_ROOT"
+echo "Running isolated Linux and Android build..."
 docker run --rm \
-  -v "$PROJECT_ROOT:/project" \
-  -v "$PROJECT_ROOT/build:/build" \
+  --network host \
+  --hostname "$(hostname)" \
+  -v /etc/machine-id:/etc/machine-id:ro \
+  -v "$BUILD_DIR:/build" \
   -v "$ULF:/root/.local/share/unity3d/Unity/Unity_lic.ulf:ro" \
-  valkyrie-builder:2019.4.41f1-android -BuildWindows \$false -BuildMac \$false -BuildLinux \$true -BuildAndroid \$true
-echo "Build finished. Artifacts in $PROJECT_ROOT/build/"
-ls -lh "$PROJECT_ROOT/build" 2>&1 | head -n 30
+  valkyrie-builder:2019.4.41f1-linux-android
+docker run --rm \
+  -v "$BUILD_DIR:/build" \
+  --entrypoint chown \
+  valkyrie-builder:2019.4.41f1-linux-android \
+  -R "$(id -u):$(id -g)" /build
+echo "Build finished. Artifacts in $BUILD_DIR/"
+ls -lh "$BUILD_DIR"

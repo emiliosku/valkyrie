@@ -1,4 +1,5 @@
 using UnityEditor;
+using UnityEditor.Android;
 using System.IO;
 using System.Collections;
 using UnityEngine;
@@ -41,6 +42,20 @@ class PerformBuild
         return names.ToArray();
     }
 
+    static void ConfigureAndroidTools()
+    {
+        string sdkRoot = System.Environment.GetEnvironmentVariable("ANDROID_SDK_ROOT");
+        string ndkRoot = System.Environment.GetEnvironmentVariable("ANDROID_NDK_ROOT");
+        string jdkRoot = System.Environment.GetEnvironmentVariable("JAVA_HOME");
+
+        if (!string.IsNullOrEmpty(sdkRoot))
+            AndroidExternalToolsSettings.sdkRootPath = sdkRoot;
+        if (!string.IsNullOrEmpty(ndkRoot))
+            AndroidExternalToolsSettings.ndkRootPath = ndkRoot;
+        if (!string.IsNullOrEmpty(jdkRoot))
+            AndroidExternalToolsSettings.jdkRootPath = jdkRoot;
+    }
+
     [UnityEditor.MenuItem("Perform Build/Android Command Line Build")]
     static void CommandLineBuildAndroid()
     {
@@ -50,6 +65,8 @@ class PerformBuild
         string path = GetBuildLocation(BuildTarget.Android);
         if (scenes == null || scenes.Length == 0 || path == null)
             return;
+
+        ConfigureAndroidTools();
 
         Debug.Log(string.Format("Path: \"{0}\"", path));
         for (int i = 0; i < scenes.Length; ++i)
