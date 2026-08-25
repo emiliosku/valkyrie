@@ -4,14 +4,15 @@ const { PROVIDERS, providerCandidates } = require('./policy');
 
 function parseJson(text) { const match = String(text || '').match(/```(?:json)?\s*([\s\S]*?)```/i); try { return JSON.parse((match ? match[1] : text).trim()); } catch (_) { return null; } }
 function completionText(data) { const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content; if (typeof content === 'string') return content; if (Array.isArray(content)) return content.map((part) => part.text || part.content || '').join(''); return ''; }
-function providerError(message, status, retryAfterMs) { const error = new Error(message); error.status = status; error.retryAfterMs = retryAfterMs; return error; }
+function providerError(message, status, retryAfterMs, detail) { const error = new Error(message); error.status = status; error.retryAfterMs = retryAfterMs; error.detail = detail; return error; }
 function retryAfter(response) { const value = response.headers && response.headers.get && response.headers.get('retry-after'); return value && Number.isFinite(Number(value)) ? Number(value) * 1000 : undefined; }
+async function responseDetail(response) { if (!response.text) return ''; return (await response.text()).replace(/\s+/g, ' ').slice(0, 500); }
 async function openAiChat(candidate, messages, options, fetchImpl) {
   const config = PROVIDERS[candidate.provider]; const key = process.env[config.key]; if (!key) throw providerError(`${config.key} is not set`, 401);
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
   try {
     const response = await fetchImpl(`${config.baseUrl}/chat/completions`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ model: candidate.model, messages, temperature: options.temperature || 0.3, max_tokens: options.maxTokens || 1600 }) });
-    if (!response.ok) throw providerError(`${candidate.provider} request failed with ${response.status}`, response.status, retryAfter(response));
+    if (!response.ok) throw providerError(`${candidate.provider} request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
     const text = completionText(await response.json()); if (!text) throw providerError(`${candidate.provider} returned an empty completion`, 502); return text;
   } catch (error) { if (error.name === 'AbortError') throw providerError(`${candidate.provider} request timed out`, 408); throw error; } finally { clearTimeout(timer); }
 }
@@ -22,7 +23,7 @@ async function geminiChat(candidate, messages, options, fetchImpl) {
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
   try {
     const response = await fetchImpl(`${config.baseUrl}/models/${encodeURIComponent(candidate.model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ systemInstruction: system ? { parts: [{ text: system }] } : undefined, contents, generationConfig: { temperature: options.temperature || 0.3, maxOutputTokens: options.maxTokens || 1600, responseMimeType: 'application/json' } }) });
-    if (!response.ok) throw providerError(`gemini request failed with ${response.status}`, response.status, retryAfter(response));
+    if (!response.ok) throw providerError(`gemini request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
     const data = await response.json(); const text = (((data.candidates || [])[0] || {}).content || {}).parts || []; const joined = text.map((part) => part.text || '').join(''); if (!joined) throw providerError('gemini returned an empty completion', 502); return joined;
   } catch (error) { if (error.name === 'AbortError') throw providerError('gemini request timed out', 408); throw error; } finally { clearTimeout(timer); }
 }
@@ -46,7 +47,7 @@ async function complete(store, messages, options = {}) {
       if (options.accept && !options.accept(text)) throw providerError(`${candidate.provider} returned an unusable structured response`, 502);
       return { text, provider: candidate.provider, model: candidate.model, key: candidate.key, fallbacks, latencyMs: Date.now() - started };
     } catch (error) {
-      if (!retryable(error)) throw error; cool(candidate, error); console.warn(`[mom-ai-author:${options.stage || 'completion'}] ${candidate.key} failed with ${error.status || 'network'}; trying the next candidate`); fallbacks.push({ provider: candidate.provider, model: candidate.model, reason: error.message });
+      if (!retryable(error)) throw error; cool(candidate, error); console.warn(`[mom-ai-author:${options.stage || 'completion'}] ${candidate.key} failed with ${error.status || 'network'}${error.detail ? `: ${error.detail}` : ''}; trying the next candidate`); fallbacks.push({ provider: candidate.provider, model: candidate.model, reason: error.message });
     }
   }
   throw providerError('All configured verified-free provider models are temporarily unavailable', 503);
