@@ -6,6 +6,12 @@ function parseJson(text) {
   const match = String(text || '').match(/```(?:json)?\s*([\s\S]*?)```/i);
   try { return JSON.parse((match ? match[1] : text).trim()); } catch (_) { return null; }
 }
+function completionText(data) {
+  const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+  if (typeof content === 'string') return content;
+  if (Array.isArray(content)) return content.map((part) => part.text || part.content || '').join('');
+  return '';
+}
 function providerError(message, status) { const error = new Error(message); error.status = status; return error; }
 async function callChat(model, messages, temperature, timeoutMs, maxTokens, fetchImpl = fetch) {
   const key = process.env.OPENCODE_API_KEY;
@@ -20,7 +26,7 @@ async function callChat(model, messages, temperature, timeoutMs, maxTokens, fetc
     });
     if (!response.ok) throw providerError(`Zen request failed with ${response.status}`, response.status);
     const data = await response.json();
-    const text = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content;
+    const text = completionText(data);
     if (!text) throw providerError('Zen returned an empty completion', 502);
     return text;
   } catch (error) {
@@ -37,16 +43,18 @@ async function complete(store, messages, options = {}) {
   for (const model of candidates) {
     const started = Date.now();
     try {
-      console.info(`[mom-ai-author] trying ${model}`);
-      return { text: await callChat(model, messages, options.temperature || 0.3, options.timeoutMs || 45000, options.maxTokens || 1600, options.fetchImpl || fetch), model, fallbacks, latencyMs: Date.now() - started };
+      console.info(`[mom-ai-author:${options.stage || 'completion'}] trying ${model}`);
+      const text = await callChat(model, messages, options.temperature || 0.3, options.timeoutMs || 45000, options.maxTokens || 1600, options.fetchImpl || fetch);
+      if (options.accept && !options.accept(text)) throw providerError('Zen returned an unusable structured response', 502);
+      return { text, model, fallbacks, latencyMs: Date.now() - started };
     }
     catch (error) {
       if (!retryable(error)) throw error;
-      console.warn(`[mom-ai-author] ${model} failed with ${error.status || 'network'}; trying the next candidate`);
+      console.warn(`[mom-ai-author:${options.stage || 'completion'}] ${model} failed with ${error.status || 'network'}; trying the next candidate`);
       fallbacks.push({ model, reason: error.message });
     }
   }
   throw providerError('All verified free Zen models are temporarily unavailable', 503);
 }
 
-module.exports = { parseJson, complete, callChat, retryable };
+module.exports = { parseJson, complete, callChat, retryable, completionText };
