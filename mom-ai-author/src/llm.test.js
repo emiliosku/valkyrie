@@ -5,7 +5,7 @@ process.env.GROQ_API_KEY = 'groq-test-key';
 process.env.GEMINI_API_KEY = 'gemini-test-key';
 const test = require('node:test');
 const assert = require('node:assert/strict');
-const { complete } = require('./llm');
+const { complete, retryable } = require('./llm');
 const zenCandidates = [{ provider: 'zen', model: 'nemotron-3-ultra-free', key: 'zen/nemotron-3-ultra-free' }, { provider: 'zen', model: 'hy3-free', key: 'zen/hy3-free' }];
 
 test('tries the next free model after a temporary failure', async () => {
@@ -52,3 +52,5 @@ test('uses Gemini native JSON mode', async () => {
   assert.ok(request.url.includes(':generateContent?key='));
   assert.equal(request.body.generationConfig.responseMimeType, 'application/json');
 });
+
+test('falls through after a provider rejects a large payload', () => assert.equal(retryable({ status: 413 }), true));

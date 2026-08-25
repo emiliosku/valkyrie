@@ -59,7 +59,7 @@ function selectedCatalog(catalog, requested) {
   const filter = (items) => items.filter((item) => item.packIds.some((id) => effective.has(id)));
   return { schemaVersion: catalog.schemaVersion, game: catalog.game, selectedPackIds, effectivePackIds: [...effective], packs: catalog.packs.filter((pack) => selectedPackIds.includes(pack.id)).map((pack) => ({ ...pack, contentCount: Object.values(TYPES).reduce((count, type) => count + filter(catalog[type]).filter((item) => item.packIds.includes(pack.id)).length, 0) })), ...Object.fromEntries(Object.values(TYPES).map((type) => [type, filter(catalog[type])])) };
 }
-function promptCatalog(catalog, maxPerType = 40) {
+function promptCatalog(catalog, maxPerType = 20) {
   const sample = (items) => {
     const chosen = []; const seen = new Set();
     for (const pack of catalog.selectedPackIds) for (const item of items) {
