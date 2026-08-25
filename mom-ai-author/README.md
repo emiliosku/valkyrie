@@ -18,7 +18,9 @@ Zen may require an account and billing setup even where the selected model has z
 
 ## Authoring flow
 
-`idea -> interview -> story bible -> ratings/revision -> generation -> validation -> narrative critique -> package`
+`materials -> idea -> interview -> story bible -> ratings/revision -> generation -> validation -> narrative critique -> package`
+
+Before an interview, select the MoM expansions the case may use. `MoMBase` is always required. The companion parses Valkyrie's checked-in MoM pack manifests and validates generated tile, monster, investigator, item/spell, token, UI image, and audio IDs against that selected catalog. It does not ship or inspect official FFG artwork or audio, so asset availability remains a player-import warning until the future Unity-editor integration can use its live loaded catalog.
 
 The user never selects a model. The server periodically queries Zen's model catalog and chooses the highest-ranked available model from its verified-free, chat-completions-compatible policy. Current candidates are `nemotron-3-ultra-free`, `hy3-free`, `mimo-v2.5-free`, `big-pickle`, `x-preview-f-free`, and `nemotron-3.5-lightning-free`.
 
