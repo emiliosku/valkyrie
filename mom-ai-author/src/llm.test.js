@@ -36,13 +36,13 @@ test('falls through when a model ignores the response schema', async () => {
 });
 
 test('fails over between configured hosted providers', async () => {
-  const candidates = [{ provider: 'groq', model: 'openai/gpt-oss-20b', key: 'groq/openai/gpt-oss-20b' }, { provider: 'huggingface', model: 'openai/gpt-oss-120b:fastest', key: 'huggingface/openai/gpt-oss-120b:fastest' }];
-  const fetchImpl = async (url) => url.includes('api.groq.com')
-    ? { ok: false, status: 429, headers: { get: () => '1' } }
+  const candidates = [{ provider: 'huggingface', model: 'openai/gpt-oss-120b:fastest', key: 'huggingface/openai/gpt-oss-120b:fastest' }, { provider: 'groq', model: 'openai/gpt-oss-20b', key: 'groq/openai/gpt-oss-20b' }];
+  const fetchImpl = async (url) => url.includes('router.huggingface.co')
+    ? { ok: false, status: 400, headers: { get: () => null } }
     : { ok: true, json: async () => ({ choices: [{ message: { content: '{"state":"question"}' } }] }) };
   const result = await complete({ modelScores: () => ({}) }, [{ role: 'user', content: 'test' }], { candidates, ignoreCooldown: true, fetchImpl });
-  assert.equal(result.key, 'huggingface/openai/gpt-oss-120b:fastest');
-  assert.equal(result.fallbacks[0].provider, 'groq');
+  assert.equal(result.key, 'groq/openai/gpt-oss-20b');
+  assert.equal(result.fallbacks[0].provider, 'huggingface');
 });
 
 test('uses Gemini native JSON mode', async () => {

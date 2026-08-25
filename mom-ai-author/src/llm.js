@@ -27,7 +27,9 @@ async function geminiChat(candidate, messages, options, fetchImpl) {
   } catch (error) { if (error.name === 'AbortError') throw providerError('gemini request timed out', 408); throw error; } finally { clearTimeout(timer); }
 }
 async function callCandidate(candidate, messages, options, fetchImpl) { return candidate.provider === 'gemini' ? geminiChat(candidate, messages, options, fetchImpl) : openAiChat(candidate, messages, options, fetchImpl); }
-function retryable(error) { return !error.status || [408, 429, 500, 502, 503, 504].includes(error.status); }
+// HTTP 400 from a remote provider often means that its current model does not
+// support this request shape. Local validation errors never reach this layer.
+function retryable(error) { return !error.status || [400, 408, 429, 500, 502, 503, 504].includes(error.status); }
 const cooldowns = new Map();
 function coolingDown(candidate) { return (cooldowns.get(candidate.key) || 0) > Date.now(); }
 function cool(candidate, error) { if (retryable(error)) cooldowns.set(candidate.key, Date.now() + (error.retryAfterMs || (error.status === 429 ? 60000 : 30000))); }
