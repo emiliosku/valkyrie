@@ -28,7 +28,7 @@ function parseIni(text) {
   }
   return sections;
 }
-function validateQuest(input) {
+function validateQuest(input, catalog) {
   const files = safeFiles(input);
   const errors = []; const warnings = []; const sections = {};
   for (const [file, text] of Object.entries(files)) for (const [name, section] of Object.entries(parseIni(text))) {
@@ -51,8 +51,24 @@ function validateQuest(input) {
       if (target && !sections[target]) errors.push(`[${name}] references undefined event ${target}`);
     }
   }
+  if (catalog) {
+    const declaredPacks = new Set(String(quest.keys.packs || '').split(/\s+/).filter(Boolean));
+    const selectedPacks = new Set(catalog.selectedPackIds);
+    for (const pack of declaredPacks) if (!selectedPacks.has(pack)) errors.push(`[Quest] declares unselected pack ${pack}`);
+    for (const pack of selectedPacks) if (!declaredPacks.has(pack)) errors.push(`[Quest] is missing selected pack ${pack}`);
+    const requireId = (type, id, sectionName, key) => { if (id && !containsCatalog(catalog, type, id)) errors.push(`[${sectionName}] ${key} references unavailable ${type} id ${id}`); };
+    for (const [name, section] of Object.entries(sections)) {
+      if (section.keys.side) requireId('tileSides', section.keys.side, name, 'side');
+      if (section.keys.monster) requireId('monsters', section.keys.monster, name, 'monster');
+      if (section.keys.itemname) requireId('items', section.keys.itemname, name, 'itemname');
+      if (section.keys.type && /^Token/.test(section.keys.type)) requireId('tokens', section.keys.type, name, 'type');
+      if (section.keys.image && /^Image/.test(section.keys.image)) requireId('images', section.keys.image, name, 'image');
+      if (section.keys.audio && /^Audio/.test(section.keys.audio)) requireId('audio', section.keys.audio, name, 'audio');
+    }
+  }
   return { errors, warnings, files };
 }
+function containsCatalog(catalog, type, id) { return (catalog[type] || []).some((item) => item.id === id); }
 function crc32(buffer) { let crc = 0xffffffff; for (const byte of buffer) { crc ^= byte; for (let i = 0; i < 8; i++) crc = (crc >>> 1) ^ (crc & 1 ? 0xedb88320 : 0); } return (crc ^ 0xffffffff) >>> 0; }
 function zip(files) {
   const local = []; const central = []; let offset = 0;

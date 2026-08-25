@@ -15,6 +15,9 @@ test('local HTTP mock flow produces a downloadable package', async (context) => 
   await new Promise((resolve) => server.listen(0, '127.0.0.1', resolve));
   context.after(() => server.close());
   const base = `http://127.0.0.1:${server.address().port}`;
+  const catalog = await fetch(`${base}/v1/catalog`);
+  assert.equal(catalog.status, 200);
+  assert.ok((await catalog.json()).packs.some((pack) => pack.id === 'MoMBase'));
   const oversized = await fetch(`${base}/v1/interviews`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ idea: 'x'.repeat(33 * 1024) }) });
   assert.equal(oversized.status, 413);
   const started = await post(base, '/v1/interviews', { idea: 'An archive beneath the manor', mock: true });

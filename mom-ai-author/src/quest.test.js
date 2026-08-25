@@ -7,6 +7,7 @@ const test = require('node:test');
 const assert = require('node:assert/strict');
 const { validateQuest } = require('./quest');
 const { createInterview, answer, review, generate } = require('./interview');
+const { loadCatalog, selectedCatalog } = require('./catalog');
 const store = require('./store');
 
 test('rejects unsafe package filenames', () => assert.throws(() => validateQuest({ '../evil.ini': '' }), /Unsupported/));
@@ -20,7 +21,7 @@ test('requires a supported format and EventStart', () => {
   assert.ok(result.errors.some((error) => error.includes('EventStart')));
 });
 test('mock interview produces a valid quest after review', async () => {
-  const first = await createInterview('A forgotten archive', true, store);
+  const first = await createInterview('A forgotten archive', true, store, selectedCatalog(loadCatalog(), []));
   assert.equal(first.state, 'question');
   const ready = await answer(first.id, 'gothic', '', store);
   assert.equal(ready.state, 'review');
