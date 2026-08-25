@@ -6,6 +6,11 @@ const { parseIni } = require('./quest');
 
 const MOM_ROOT = process.env.MOM_CONTENT_ROOT || path.resolve(__dirname, '..', '..', 'unity', 'Assets', 'StreamingAssets', 'content', 'MoM');
 const TYPES = { TileSide: 'tileSides', Monster: 'monsters', Hero: 'heroes', Item: 'items', Token: 'tokens', Image: 'images', Audio: 'audio' };
+const PACK_NAMES = {
+  MoMBase: 'Mansions of Madness: Second Edition', BtT: 'Beyond the Threshold', HJ: 'Horrific Journeys', PotS: 'Path of the Serpent', RN: 'Recurring Nightmares', SM: 'Suppressed Memories', SoA: 'Streets of Arkham', SoT: 'Sanctum of Twilight',
+  MoM1EI: 'First Edition Investigators', MoM1EM: 'First Edition Monsters', MoM1ET: 'First Edition Tiles', MoM1CK: 'First Edition Tokens and Cards',
+  FAI: 'Forbidden Alchemy Investigators', FAM: 'Forbidden Alchemy Monsters', FAT: 'Forbidden Alchemy Tiles', CotWI: 'Call of the Wild Investigators', CotWM: 'Call of the Wild Monsters', CotWT: 'Call of the Wild Tiles',
+};
 let cached;
 
 function filesNamed(root, name) {
@@ -25,7 +30,7 @@ function loadCatalog(root = MOM_ROOT) {
     const ini = parseIni(fs.readFileSync(manifest, 'utf8'));
     const data = ini.ContentPack && ini.ContentPack.keys;
     if (!data || !data.id) continue;
-    packs.set(data.id, { id: data.id, type: data.type || 'other', nameKey: data.name || data.id, clonePackIds: String(data.clone || '').split(/\s+/).filter(Boolean), files: (ini.ContentPackData || { bare: [] }).bare, directory: path.dirname(manifest) });
+    packs.set(data.id, { id: data.id, type: data.type || 'other', nameKey: data.name || data.id, displayName: PACK_NAMES[data.id] || data.id, clonePackIds: String(data.clone || '').split(/\s+/).filter(Boolean), files: (ini.ContentPackData || { bare: [] }).bare, directory: path.dirname(manifest) });
   }
   const entries = Object.fromEntries(Object.values(TYPES).map((type) => [type, new Map()]));
   for (const pack of packs.values()) for (const relative of pack.files) {

@@ -9,6 +9,7 @@ test('loads shipped MoM packs and resolves pack clones', () => {
   assert.equal(catalog.packs.length, 18);
   assert.ok(catalog.tileSides.some((item) => item.id === 'TileSideLobby'));
   assert.ok(catalog.monsters.some((item) => item.id === 'MonsterCultist'));
+  assert.equal(catalog.packs.find((pack) => pack.id === 'PotS').displayName, 'Path of the Serpent');
   const selected = selectedCatalog(catalog, ['RN']);
   assert.deepEqual(selected.selectedPackIds, ['MoMBase', 'RN']);
   assert.ok(selected.effectivePackIds.includes('MoM1CK'));
