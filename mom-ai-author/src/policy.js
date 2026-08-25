@@ -2,8 +2,8 @@
 
 const POLICY_VERSION = 1;
 const DEFAULT_FREE_MODELS = [
-  'nemotron-3-ultra-free',
   'hy3-free',
+  'nemotron-3-ultra-free',
   'mimo-v2.5-free',
   'big-pickle',
   'x-preview-f-free',

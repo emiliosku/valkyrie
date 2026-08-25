@@ -7,7 +7,7 @@ function parseJson(text) {
   try { return JSON.parse((match ? match[1] : text).trim()); } catch (_) { return null; }
 }
 function providerError(message, status) { const error = new Error(message); error.status = status; return error; }
-async function callChat(model, messages, temperature, timeoutMs, fetchImpl = fetch) {
+async function callChat(model, messages, temperature, timeoutMs, maxTokens, fetchImpl = fetch) {
   const key = process.env.OPENCODE_API_KEY;
   if (!key) throw providerError('OPENCODE_API_KEY is not set', 401);
   const controller = new AbortController();
@@ -16,7 +16,7 @@ async function callChat(model, messages, temperature, timeoutMs, fetchImpl = fet
     const response = await fetchImpl(`${ZEN_BASE_URL}/chat/completions`, {
       method: 'POST', signal: controller.signal,
       headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` },
-      body: JSON.stringify({ model, messages, temperature, max_tokens: 7000 }),
+      body: JSON.stringify({ model, messages, temperature, max_tokens: maxTokens }),
     });
     if (!response.ok) throw providerError(`Zen request failed with ${response.status}`, response.status);
     const data = await response.json();
@@ -31,14 +31,18 @@ async function callChat(model, messages, temperature, timeoutMs, fetchImpl = fet
 function retryable(error) { return !error.status || [408, 429, 500, 502, 503, 504].includes(error.status); }
 async function complete(store, messages, options = {}) {
   if (options.mock) return { text: options.mockText(), model: 'mock', fallbacks: [] };
-  const candidates = await rankedAvailableModels(store);
+  const candidates = await rankedAvailableModels(store, options.fetchImpl);
   if (!candidates.length) throw providerError('No verified free Zen model is currently available', 503);
   const fallbacks = [];
   for (const model of candidates) {
     const started = Date.now();
-    try { return { text: await callChat(model, messages, options.temperature || 0.3, options.timeoutMs || 45000), model, fallbacks, latencyMs: Date.now() - started }; }
+    try {
+      console.info(`[mom-ai-author] trying ${model}`);
+      return { text: await callChat(model, messages, options.temperature || 0.3, options.timeoutMs || 45000, options.maxTokens || 1600, options.fetchImpl || fetch), model, fallbacks, latencyMs: Date.now() - started };
+    }
     catch (error) {
       if (!retryable(error)) throw error;
+      console.warn(`[mom-ai-author] ${model} failed with ${error.status || 'network'}; trying the next candidate`);
       fallbacks.push({ model, reason: error.message });
     }
   }

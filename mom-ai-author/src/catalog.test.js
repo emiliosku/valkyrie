@@ -13,6 +13,8 @@ test('loads shipped MoM packs and resolves pack clones', () => {
   const selected = selectedCatalog(catalog, ['RN']);
   assert.deepEqual(selected.selectedPackIds, ['MoMBase', 'RN']);
   assert.ok(selected.effectivePackIds.includes('MoM1CK'));
+  const compact = require('./catalog').promptCatalog(selected);
+  assert.ok(Buffer.byteLength(JSON.stringify(compact), 'utf8') < 25000);
 });
 
 test('rejects a generated reference outside selected packs', () => {

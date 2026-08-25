@@ -59,7 +59,18 @@ function selectedCatalog(catalog, requested) {
   const filter = (items) => items.filter((item) => item.packIds.some((id) => effective.has(id)));
   return { schemaVersion: catalog.schemaVersion, game: catalog.game, selectedPackIds, effectivePackIds: [...effective], packs: catalog.packs.filter((pack) => selectedPackIds.includes(pack.id)).map((pack) => ({ ...pack, contentCount: Object.values(TYPES).reduce((count, type) => count + filter(catalog[type]).filter((item) => item.packIds.includes(pack.id)).length, 0) })), ...Object.fromEntries(Object.values(TYPES).map((type) => [type, filter(catalog[type])])) };
 }
-function promptCatalog(catalog) { return Object.fromEntries(Object.values(TYPES).map((type) => [type, catalog[type].map((item) => ({ id: item.id, traits: item.traits, packIds: item.packIds, reverseId: item.reverseId }))])); }
+function promptCatalog(catalog, maxPerType = 40) {
+  const sample = (items) => {
+    const chosen = []; const seen = new Set();
+    for (const pack of catalog.selectedPackIds) for (const item of items) {
+      if (chosen.length >= maxPerType) break;
+      if (item.packIds.includes(pack) && !seen.has(item.id)) { chosen.push(item); seen.add(item.id); }
+    }
+    for (const item of items) if (chosen.length < maxPerType && !seen.has(item.id)) { chosen.push(item); seen.add(item.id); }
+    return chosen.map((item) => ({ id: item.id, traits: item.traits, reverseId: item.reverseId }));
+  };
+  return { selectedPackIds: catalog.selectedPackIds, ...Object.fromEntries(Object.values(TYPES).map((type) => [type, sample(catalog[type])])) };
+}
 function contains(catalog, type, id) { return (catalog[type] || []).some((item) => item.id === id); }
 
 module.exports = { loadCatalog, selectedCatalog, promptCatalog, contains, MOM_ROOT };
