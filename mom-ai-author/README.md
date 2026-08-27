@@ -26,13 +26,13 @@ The user never selects a provider or model. The server tries configured verified
 
 | Provider | Key | Transport | Default verified-free models |
 | --- | --- | --- | --- |
-| Ollama Cloud | `OLLAMA_API_KEY` | Native Ollama chat API | None; set an explicitly verified free model list. |
+| Ollama Cloud | `OLLAMA_API_KEY` | Native Ollama chat API | `nemotron-3-ultra`, `gpt-oss:120b`, `minimax-m3`, `nemotron-3-super`, `gemma4:31b`, `nemotron-3-nano:30b`, `gpt-oss:20b` |
 | Hugging Face Inference Providers | `HF_TOKEN` | OpenAI-compatible router | None; set an explicitly verified free model list. |
 | Groq | `GROQ_API_KEY` | OpenAI-compatible | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b` |
 | OpenCode Zen | `OPENCODE_API_KEY` | OpenAI-compatible | Zen's current verified-free policy |
 | Gemini | `GEMINI_API_KEY` | Native `generateContent` | None; set an explicitly verified free model list. |
 
-The default provider order is `ollama,huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`.
+The default provider order is `ollama,huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`. A provider's default list is a cold-start quality preference; after five rated outcomes, the local narrative/reliability score reorders its eligible models.
 
 Temporary availability, schema, and rate-limit failures retry the next eligible provider/model. A failing candidate enters a local cooldown, honoring `Retry-After` when supplied. Authentication and invalid-input failures do not fall through. Mock mode is explicit and is never an automatic fallback.
 

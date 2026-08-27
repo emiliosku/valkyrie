@@ -7,6 +7,7 @@ process.env.OLLAMA_API_KEY = 'ollama-test-key';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { complete, retryable } = require('./llm');
+const { modelsFor } = require('./policy');
 const zenCandidates = [{ provider: 'zen', model: 'nemotron-3-ultra-free', key: 'zen/nemotron-3-ultra-free' }, { provider: 'zen', model: 'hy3-free', key: 'zen/hy3-free' }];
 
 test('tries the next free model after a temporary failure', async () => {
@@ -65,3 +66,7 @@ test('uses Ollama Cloud native chat API', async () => {
 });
 
 test('falls through after a provider rejects a large payload', () => assert.equal(retryable({ status: 413 }), true));
+
+test('uses the quality-oriented Ollama Cloud cold-start order', () => {
+  assert.deepEqual(modelsFor('ollama'), ['nemotron-3-ultra', 'gpt-oss:120b', 'minimax-m3', 'nemotron-3-super', 'gemma4:31b', 'nemotron-3-nano:30b', 'gpt-oss:20b']);
+});

@@ -9,7 +9,17 @@ const DEFAULT_MODELS = {
   // They are enabled only after an operator explicitly verifies a free model.
   huggingface: [],
   gemini: [],
-  ollama: [],
+  // Cold-start preference only. Once a model has five rated outcomes, the
+  // local narrative/reliability score takes precedence over this order.
+  ollama: [
+    'nemotron-3-ultra',
+    'gpt-oss:120b',
+    'minimax-m3',
+    'nemotron-3-super',
+    'gemma4:31b',
+    'nemotron-3-nano:30b',
+    'gpt-oss:20b',
+  ],
 };
 const ENV_MODEL_NAMES = { zen: 'MOM_AI_FREE_MODELS', groq: 'MOM_AI_GROQ_FREE_MODELS', huggingface: 'MOM_AI_HF_FREE_MODELS', gemini: 'MOM_AI_GEMINI_FREE_MODELS', ollama: 'MOM_AI_OLLAMA_FREE_MODELS' };
 const PROVIDERS = {
