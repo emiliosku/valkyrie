@@ -31,9 +31,9 @@ async function ollamaChat(candidate, messages, options, fetchImpl) {
   const config = PROVIDERS.ollama; const key = process.env[config.key]; if (!key) throw providerError(`${config.key} is not set`, 401);
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
   try {
-    const response = await fetchImpl(`${config.baseUrl}/api/chat`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ model: candidate.model, messages, stream: false, format: 'json', options: { temperature: options.temperature || 0.3, num_predict: options.maxTokens || 1600 } }) });
+    const response = await fetchImpl(`${config.baseUrl}/api/chat`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ model: candidate.model, messages, stream: false, think: false, format: 'json', options: { temperature: options.temperature || 0.3, num_predict: options.maxTokens || 1600 } }) });
     if (!response.ok) throw providerError(`ollama request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
-    const data = await response.json(); const text = data.message && data.message.content; if (!text) throw providerError('ollama returned an empty completion', 502); return text;
+    const data = await response.json(); const text = data.message && data.message.content; if (!text) throw providerError('ollama returned an empty completion', 502, undefined, JSON.stringify({ done_reason: data.done_reason, message: data.message }).slice(0, 500)); return text;
   } catch (error) { if (error.name === 'AbortError') throw providerError('ollama request timed out', 408); throw error; } finally { clearTimeout(timer); }
 }
 async function callCandidate(candidate, messages, options, fetchImpl) { if (candidate.provider === 'gemini') return geminiChat(candidate, messages, options, fetchImpl); if (candidate.provider === 'ollama') return ollamaChat(candidate, messages, options, fetchImpl); return openAiChat(candidate, messages, options, fetchImpl); }

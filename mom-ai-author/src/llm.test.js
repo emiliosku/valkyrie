@@ -60,6 +60,7 @@ test('uses Ollama Cloud native chat API', async () => {
   assert.equal(result.key, 'ollama/gpt-oss:120b');
   assert.ok(request.url.endsWith('/api/chat'));
   assert.equal(request.body.stream, false);
+  assert.equal(request.body.think, false);
   assert.equal(request.body.format, 'json');
 });
 
