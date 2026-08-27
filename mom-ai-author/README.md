@@ -26,16 +26,17 @@ The user never selects a provider or model. The server tries configured verified
 
 | Provider | Key | Transport | Default verified-free models |
 | --- | --- | --- | --- |
+| Ollama Cloud | `OLLAMA_API_KEY` | Native Ollama chat API | None; set an explicitly verified free model list. |
 | Hugging Face Inference Providers | `HF_TOKEN` | OpenAI-compatible router | None; set an explicitly verified free model list. |
 | Groq | `GROQ_API_KEY` | OpenAI-compatible | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b` |
 | OpenCode Zen | `OPENCODE_API_KEY` | OpenAI-compatible | Zen's current verified-free policy |
 | Gemini | `GEMINI_API_KEY` | Native `generateContent` | None; set an explicitly verified free model list. |
 
-The default provider order is `huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`.
+The default provider order is `ollama,huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`.
 
 Temporary availability, schema, and rate-limit failures retry the next eligible provider/model. A failing candidate enters a local cooldown, honoring `Retry-After` when supplied. Authentication and invalid-input failures do not fall through. Mock mode is explicit and is never an automatic fallback.
 
-Verified-free policies may be overridden after independently confirming both zero cost and API compatibility: `MOM_AI_FREE_MODELS` (Zen), `MOM_AI_GROQ_FREE_MODELS`, `MOM_AI_HF_FREE_MODELS`, and `MOM_AI_GEMINI_FREE_MODELS`. Models merely present in a provider catalog are intentionally excluded, preventing a silent paid fallback.
+Verified-free policies may be overridden after independently confirming both zero cost and API compatibility: `MOM_AI_OLLAMA_FREE_MODELS`, `MOM_AI_FREE_MODELS` (Zen), `MOM_AI_GROQ_FREE_MODELS`, `MOM_AI_HF_FREE_MODELS`, and `MOM_AI_GEMINI_FREE_MODELS`. Models merely present in a provider catalog are intentionally excluded, preventing a silent paid fallback.
 
 Story-bible ratings and operational outcomes are stored only in `~/.local/share/valkyrie-ai-author/ratings.sqlite` by default. They improve the local ranking after at least five rated reviews per model. Set `MOM_AI_DATA_DIR` to override the local data directory.
 

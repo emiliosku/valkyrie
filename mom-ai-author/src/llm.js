@@ -27,7 +27,16 @@ async function geminiChat(candidate, messages, options, fetchImpl) {
     const data = await response.json(); const text = (((data.candidates || [])[0] || {}).content || {}).parts || []; const joined = text.map((part) => part.text || '').join(''); if (!joined) throw providerError('gemini returned an empty completion', 502); return joined;
   } catch (error) { if (error.name === 'AbortError') throw providerError('gemini request timed out', 408); throw error; } finally { clearTimeout(timer); }
 }
-async function callCandidate(candidate, messages, options, fetchImpl) { return candidate.provider === 'gemini' ? geminiChat(candidate, messages, options, fetchImpl) : openAiChat(candidate, messages, options, fetchImpl); }
+async function ollamaChat(candidate, messages, options, fetchImpl) {
+  const config = PROVIDERS.ollama; const key = process.env[config.key]; if (!key) throw providerError(`${config.key} is not set`, 401);
+  const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
+  try {
+    const response = await fetchImpl(`${config.baseUrl}/api/chat`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ model: candidate.model, messages, stream: false, format: 'json', options: { temperature: options.temperature || 0.3, num_predict: options.maxTokens || 1600 } }) });
+    if (!response.ok) throw providerError(`ollama request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
+    const data = await response.json(); const text = data.message && data.message.content; if (!text) throw providerError('ollama returned an empty completion', 502); return text;
+  } catch (error) { if (error.name === 'AbortError') throw providerError('ollama request timed out', 408); throw error; } finally { clearTimeout(timer); }
+}
+async function callCandidate(candidate, messages, options, fetchImpl) { if (candidate.provider === 'gemini') return geminiChat(candidate, messages, options, fetchImpl); if (candidate.provider === 'ollama') return ollamaChat(candidate, messages, options, fetchImpl); return openAiChat(candidate, messages, options, fetchImpl); }
 // HTTP 400 from a remote provider often means that its current model does not
 // support this request shape. Local validation errors never reach this layer.
 function retryable(error) { return !error.status || [400, 408, 413, 429, 500, 502, 503, 504].includes(error.status); }

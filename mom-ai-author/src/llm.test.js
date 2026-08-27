@@ -3,6 +3,7 @@ process.env.OPENCODE_API_KEY = 'test-key';
 process.env.HF_TOKEN = 'hf-test-key';
 process.env.GROQ_API_KEY = 'groq-test-key';
 process.env.GEMINI_API_KEY = 'gemini-test-key';
+process.env.OLLAMA_API_KEY = 'ollama-test-key';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { complete, retryable } = require('./llm');
@@ -51,6 +52,15 @@ test('uses Gemini native JSON mode', async () => {
   assert.equal(result.key, 'gemini/gemini-test');
   assert.ok(request.url.includes(':generateContent?key='));
   assert.equal(request.body.generationConfig.responseMimeType, 'application/json');
+});
+
+test('uses Ollama Cloud native chat API', async () => {
+  let request;
+  const result = await complete({ modelScores: () => ({}) }, [{ role: 'user', content: 'test' }], { candidates: [{ provider: 'ollama', model: 'gpt-oss:120b', key: 'ollama/gpt-oss:120b' }], ignoreCooldown: true, fetchImpl: async (url, options) => { request = { url, body: JSON.parse(options.body) }; return { ok: true, json: async () => ({ message: { content: '{"state":"question"}' } }) }; } });
+  assert.equal(result.key, 'ollama/gpt-oss:120b');
+  assert.ok(request.url.endsWith('/api/chat'));
+  assert.equal(request.body.stream, false);
+  assert.equal(request.body.format, 'json');
 });
 
 test('falls through after a provider rejects a large payload', () => assert.equal(retryable({ status: 413 }), true));
