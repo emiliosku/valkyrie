@@ -71,7 +71,25 @@ async function generate(id, store) {
   let result = session.mock ? { text: JSON.stringify(mockQuest(session)), provider: 'mock', model: 'mock', key: 'mock', latencyMs: 0 } : await complete(store, [{ role: 'system', content: generationPrompt(session) }, { role: 'user', content: 'Generate the complete scenario now.' }], { stage: 'generation', accept: generatedFilesValid, timeoutMs: 90000, maxTokens: 4000, temperature: 0.2 });
   let generated = parseJson(result.text); let validation = validateGenerated(generated, session.catalog);
   while (!session.mock && validation.errors.length && repairs < 2) { repairs += 1; result = await complete(store, [{ role: 'system', content: generationPrompt(session) }, { role: 'user', content: `Repair this complete generated quest. Validation errors: ${JSON.stringify(validation.errors)}\nPrevious output: ${JSON.stringify(generated)}` }], { stage: 'repair', accept: generatedFilesValid, timeoutMs: 90000, maxTokens: 4000, temperature: 0.15 }); generated = parseJson(result.text); validation = validateGenerated(generated, session.catalog); }
-  if (!validation.errors.length) { const critiqueResult = await critique(session, generated, store); if (critiqueResult.issues.length) { repairs += 1; result = await complete(store, [{ role: 'system', content: generationPrompt(session) }, { role: 'user', content: `Repair this complete quest for these narrative issues: ${JSON.stringify(critiqueResult.issues)}\nQuest: ${JSON.stringify(generated)}` }], { stage: 'narrative-repair', accept: generatedFilesValid, timeoutMs: 90000, maxTokens: 4000, temperature: 0.2 }); generated = parseJson(result.text); validation = validateGenerated(generated, session.catalog); } }
+  if (!validation.errors.length && !session.mock) {
+    try {
+      const critiqueResult = await critique(session, generated, store);
+      if (critiqueResult.issues.length) {
+        validation.warnings.push(`Narrative review: ${critiqueResult.issues.join(' ')}`);
+        // A second full-quest rewrite can exceed free provider context limits.
+        // Keep it opt-in until a compact operation-based repair protocol exists.
+        if (process.env.MOM_AI_NARRATIVE_REPAIR === 'true') {
+          const original = { generated, validation, result };
+          try {
+            const repaired = await complete(store, [{ role: 'system', content: generationPrompt(session) }, { role: 'user', content: `Repair this complete quest for these narrative issues: ${JSON.stringify(critiqueResult.issues)}\nQuest: ${JSON.stringify(generated)}` }], { stage: 'narrative-repair', accept: generatedFilesValid, timeoutMs: 90000, maxTokens: 4000, temperature: 0.2 });
+            const candidate = parseJson(repaired.text); const candidateValidation = validateGenerated(candidate, session.catalog);
+            if (candidateValidation.errors.length) original.validation.warnings.push('Narrative repair was rejected by structural validation; the original quest was packaged.');
+            else { generated = candidate; validation = candidateValidation; result = repaired; repairs += 1; }
+          } catch (error) { original.validation.warnings.push(`Narrative repair skipped: ${error.message}`); }
+        }
+      }
+    } catch (error) { validation.warnings.push(`Narrative review skipped: ${error.message}`); }
+  }
   session.generated = true; store.recordOutcome({ model: result.key, validatorPassed: !validation.errors.length, repairs, latencyMs: result.latencyMs || Date.now() - started });
   return { ...(generated || { name: 'scenario', files: {} }), validation, model: result.model, latencyMs: result.latencyMs || Date.now() - started };
 }
