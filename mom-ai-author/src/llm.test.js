@@ -63,6 +63,12 @@ test('uses Ollama Cloud native chat API', async () => {
   assert.equal(request.body.stream, false);
   assert.equal(request.body.think, false);
   assert.equal(request.body.format, 'json');
+  assert.ok(request.body.options.num_predict > 1600);
+});
+
+test('extracts Ollama thinking content when content is empty', async () => {
+  const result = await complete({ modelScores: () => ({}) }, [{ role: 'user', content: 'test' }], { candidates: [{ provider: 'ollama', model: 'gpt-oss:120b', key: 'ollama/gpt-oss:120b' }], ignoreCooldown: true, fetchImpl: async () => ({ ok: true, json: async () => ({ message: { content: '', thinking: '{"state":"question","question":"test?","options":[{"id":"a","label":"A"},{"id":"b","label":"B"}]}' } }) }) });
+  assert.equal(result.text.includes('"state":"question"'), true);
 });
 
 test('falls through after a provider rejects a large payload', () => assert.equal(retryable({ status: 413 }), true));
