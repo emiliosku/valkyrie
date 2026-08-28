@@ -1,7 +1,7 @@
 'use strict';
 
 const crypto = require('crypto');
-const { complete, parseJson } = require('./llm');
+const { complete, parseJson, debug } = require('./llm');
 const { validateQuest, parseIni } = require('./quest');
 const { promptCatalog, interviewCatalog } = require('./catalog');
 
@@ -65,6 +65,31 @@ async function review(id, reviewData, store) {
   return { approved: session.approved, storyBible: session.storyBible };
 }
 function validateGenerated(generated, catalog) { try { return validateQuest(generated && generated.files, catalog); } catch (error) { return { errors: [error.message], warnings: [] }; } }
+function coverPrompt(storyBible) {
+  const tone = storyBible.tone || 'dark horror';
+  const antagonist = storyBible.antagonist || '';
+  const premise = (storyBible.premise || '').slice(0, 120);
+  return `Mansions of Madness board game cover art, dark gothic horror illustration, ${tone} atmosphere. ${premise}. ${antagonist ? `Featuring ${antagonist}.` : ''} Highly detailed, atmospheric, painterly style, dark shadows, eerie lighting, no text, no letters.`;
+}
+async function generateCoverImage(storyBible, fetchImpl = fetch) {
+  if (process.env.MOM_AI_IMAGE !== 'true') return null;
+  const key = process.env.HF_TOKEN;
+  if (!key) { console.warn('[mom-ai-author:cover] MOM_AI_IMAGE=true but HF_TOKEN is not set; skipping cover'); return null; }
+  const model = process.env.MOM_AI_IMAGE_MODEL || 'black-forest-labs/FLUX.1-schnell';
+  const url = `https://router.huggingface.co/hf-inference/models/${encodeURIComponent(model)}`;
+  const prompt = coverPrompt(storyBible);
+  debug('cover-request', { model, promptBytes: Buffer.byteLength(prompt, 'utf8') });
+  try {
+    const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), 90000);
+    const response = await fetchImpl(url, { method: 'POST', signal: controller.signal, headers: { 'authorization': `Bearer ${key}`, 'content-type': 'application/json' }, body: JSON.stringify({ inputs: prompt, parameters: { num_inference_steps: 4, width: 512, height: 512 } }) });
+    clearTimeout(timer);
+    if (!response.ok) { console.warn(`[mom-ai-author:cover] Image generation failed with ${response.status}; packaging without cover`); return null; }
+    const buffer = Buffer.from(await response.arrayBuffer());
+    debug('cover-response', { model, bytes: buffer.length });
+    console.info(`[mom-ai-author:cover] Cover image generated (${buffer.length} bytes)`);
+    return buffer;
+  } catch (error) { console.warn(`[mom-ai-author:cover] Image generation error: ${error.message}; packaging without cover`); return null; }
+}
 function narrativeDigest(generated) {
   const events = parseIni((generated.files || {})['events.ini'] || '');
   const localization = String((generated.files || {})['Localization.English.txt'] || '').split(/\r?\n/).filter((line) => line.startsWith('qst:Event'));
@@ -98,6 +123,15 @@ async function generate(id, store) {
     }
   }
   if (!validation.errors.length) { session.pending = undefined; session.generated = true; }
-  return { ...(generated || { name: 'scenario', files: {} }), validation, model: result.model, latencyMs: result.latencyMs || Date.now() - started };
+  // Attempt cover image generation; non-blocking, failure only adds a warning.
+  const coverImage = validation.errors.length ? null : await generateCoverImage(session.storyBible);
+  if (coverImage) {
+    generated.files['quest.ini'] = (generated.files['quest.ini'] || '').replace(/(\[QuestText\])/, 'image=cover.jpg\n\n$1');
+    validation.warnings = (validation.warnings || []).filter((w) => !w.startsWith('cover:'));
+    console.info('[mom-ai-author:cover] Cover image ready; will be packaged as cover.jpg');
+  } else if (process.env.MOM_AI_IMAGE === 'true' && !validation.errors.length) {
+    validation.warnings = [...(validation.warnings || []), 'cover: Image generation was skipped or failed; quest uses the default Valkyrie cover.'];
+  }
+  return { ...(generated || { name: 'scenario', files: {} }), coverImage: coverImage || undefined, validation, model: result.model, latencyMs: result.latencyMs || Date.now() - started };
 }
 module.exports = { createInterview, answer, review, generate, get, questionValid, bibleValid };

@@ -51,6 +51,8 @@ Verified-free policies may be overridden after independently confirming both zer
 
 Story-bible ratings and model-performance statistics are not collected. `MOM_AI_DATA_DIR` controls only the temporary package output directory.
 
+Set `MOM_AI_IMAGE=true` to generate a cover image for each quest using the HuggingFace Inference API. `HF_TOKEN` must be set. The default model is `black-forest-labs/FLUX.1-schnell` (4-step, fast, free tier). Override with `MOM_AI_IMAGE_MODEL`. Cover generation is non-blocking: if it fails or is not configured, the quest is packaged without a cover image.
+
 Set `MOM_AI_DEBUG=true` to log safe provider diagnostics: candidate, stage, prompt/output byte counts, elapsed time, provider completion metadata, and structural validation errors. It never logs API keys, prompt text, or generated quest contents.
 
 ## Limits and safety

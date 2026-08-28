@@ -129,6 +129,14 @@ function zip(files) {
   }
   const directory = Buffer.concat(central); const body = Buffer.concat(local); const end = Buffer.alloc(22); end.writeUInt32LE(0x06054b50); end.writeUInt16LE(Object.keys(files).length, 8); end.writeUInt16LE(Object.keys(files).length, 10); end.writeUInt32LE(directory.length, 12); end.writeUInt32LE(body.length, 16); return Buffer.concat([body, directory, end]);
 }
-function packageQuest(name, files, directory) { fs.mkdirSync(directory, { recursive: true }); const safeName = String(name || 'scenario').replace(/[^a-z0-9_-]/gi, '_').slice(0, 80) || 'scenario'; const output = path.join(directory, `${safeName}-${Date.now()}-${Math.random().toString(16).slice(2)}.valkyrie`); fs.writeFileSync(output, zip(files)); return output; }
+function packageQuest(name, files, directory) {
+  fs.mkdirSync(directory, { recursive: true });
+  const safeName = String(name || 'scenario').replace(/[^a-z0-9_-]/gi, '_').slice(0, 80) || 'scenario';
+  const output = path.join(directory, `${safeName}-${Date.now()}-${Math.random().toString(16).slice(2)}.valkyrie`);
+  // Ensure all values are Buffers for the zip function (cover.jpg arrives as Buffer, text files as strings).
+  const normalised = Object.fromEntries(Object.entries(files).map(([k, v]) => [k, Buffer.isBuffer(v) ? v : Buffer.from(String(v))]));
+  fs.writeFileSync(output, zip(normalised));
+  return output;
+}
 
 module.exports = { safeFiles, parseIni, validateQuest, packageQuest };

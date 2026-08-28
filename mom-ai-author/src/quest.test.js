@@ -42,4 +42,18 @@ test('mock interview produces a valid quest after review', async () => {
   const result = await generate(first.id, store);
   assert.deepEqual(result.validation.errors, []);
   assert.ok(result.validation.files['quest.ini']);
+  assert.equal(result.coverImage, undefined); // MOM_AI_IMAGE not set
+});
+
+test('cover image is embedded in package when generated', async () => {
+  const fakeJpeg = Buffer.from([0xff, 0xd8, 0xff, 0xe0, 0x00, 0x10]);
+  // Simulate a cover already in files and quest.ini updated with image= line
+  const files = { 'quest.ini': '[Quest]\nformat=21\ntype=MoM\nimage=cover.jpg\n', 'cover.jpg': fakeJpeg };
+  const { packageQuest } = require('./quest');
+  const os = require('os'); const tmpDir = os.tmpdir();
+  const outPath = packageQuest('test-cover', files, tmpDir);
+  const { execSync } = require('child_process');
+  const listing = execSync(`unzip -l "${outPath}"`).toString();
+  assert.ok(listing.includes('cover.jpg'), 'cover.jpg must be in the zip');
+  require('fs').unlinkSync(outPath);
 });
