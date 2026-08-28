@@ -75,6 +75,22 @@ test('uses OpenRouter free-only router with JSON mode', async () => {
   assert.deepEqual(request.body.response_format, { type: 'json_object' });
 });
 
+test('skips the remaining provider models after a timeout', async () => {
+  const attempted = [];
+  const candidates = [
+    { provider: 'ollama', model: 'nemotron-3-ultra', key: 'ollama/nemotron-3-ultra' },
+    { provider: 'ollama', model: 'gpt-oss:120b', key: 'ollama/gpt-oss:120b' },
+    { provider: 'openrouter', model: 'openrouter/free', key: 'openrouter/openrouter/free' },
+  ];
+  const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates, fetchImpl: async (url, options) => {
+    const model = JSON.parse(options.body).model; attempted.push(model);
+    if (model === 'nemotron-3-ultra') return { ok: false, status: 408, headers: { get: () => null } };
+    return { ok: true, json: async () => ({ choices: [{ message: { content: '{"state":"question"}' } }] }) };
+  } });
+  assert.deepEqual(attempted, ['nemotron-3-ultra', 'openrouter/free']);
+  assert.equal(result.key, 'openrouter/openrouter/free');
+});
+
 test('extracts Ollama thinking content when content is empty', async () => {
   const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates: [{ provider: 'ollama', model: 'gpt-oss:120b', key: 'ollama/gpt-oss:120b' }], ignoreCooldown: true, fetchImpl: async () => ({ ok: true, json: async () => ({ message: { content: '', thinking: '{"state":"question","question":"test?","options":[{"id":"a","label":"A"},{"id":"b","label":"B"}]}' } }) }) });
   assert.equal(result.text.includes('"state":"question"'), true);

@@ -51,8 +51,16 @@ async function callCandidate(candidate, messages, options, fetchImpl) { if (cand
 // support this request shape. Local validation errors never reach this layer.
 function retryable(error) { return !error.status || [400, 408, 413, 429, 500, 502, 503, 504].includes(error.status); }
 const cooldowns = new Map();
-function coolingDown(candidate) { return (cooldowns.get(candidate.key) || 0) > Date.now(); }
-function cool(candidate, error) { if (retryable(error)) cooldowns.set(candidate.key, Date.now() + (error.retryAfterMs || (error.status === 429 ? 60000 : 30000))); }
+const providerCooldowns = new Map();
+function coolingDown(candidate) { return (cooldowns.get(candidate.key) || 0) > Date.now() || (providerCooldowns.get(candidate.provider) || 0) > Date.now(); }
+function cool(candidate, error) {
+  if (!retryable(error)) return;
+  const until = Date.now() + (error.retryAfterMs || (error.status === 429 ? 60000 : 30000));
+  cooldowns.set(candidate.key, until);
+  // A timeout or rate limit is normally provider-wide. Continuing through its
+  // remaining models turns a single failed request into many minutes of waits.
+  if ([408, 429].includes(error.status)) providerCooldowns.set(candidate.provider, until);
+}
 async function complete(store, messages, options = {}) {
   if (options.mock) return { text: options.mockText(), provider: 'mock', model: 'mock', key: 'mock', fallbacks: [] };
   const candidates = options.candidates || await providerCandidates(store, options.fetchImpl || fetch); if (!candidates.length) throw providerError('No configured verified-free provider model is available', 503);
