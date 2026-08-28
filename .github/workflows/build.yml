@@ -2,14 +2,14 @@ name: Build, Push, and Deploy
 
 on:
   push:
-    branches: [master]
+    branches: [master, feature/mom-ai-author]
     paths:
       - 'mom-ai-author/**'
       - 'unity/Assets/StreamingAssets/content/MoM/**'
       - '.dockerignore'
       - '.github/workflows/build.yml'
   pull_request:
-    branches: [master]
+    branches: [master, feature/mom-ai-author]
     paths:
       - 'mom-ai-author/**'
       - 'unity/Assets/StreamingAssets/content/MoM/**'
@@ -75,7 +75,7 @@ jobs:
   deploy:
     needs: [build]
     runs-on: ubuntu-latest
-    if: github.ref == 'refs/heads/master' && github.event_name != 'pull_request'
+    if: (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/feature/mom-ai-author') && github.event_name != 'pull_request'
     steps:
       - name: SSH into server, pull by digest, restart, verify
         uses: appleboy/ssh-action@v1
