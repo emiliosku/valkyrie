@@ -3,8 +3,8 @@
 const POLICY_VERSION = 4;
 
 const INTERVIEW_STAGES = new Set(['interview', 'revision']);
-const INTERVIEW_PROVIDERS = (process.env.MOM_AI_INTERVIEW_PROVIDER_ORDER || process.env.MOM_AI_PROVIDER_ORDER || 'groq,ollama,openrouter').split(',').map((id) => id.trim()).filter(Boolean);
-const GENERATION_PROVIDERS = (process.env.MOM_AI_GENERATION_PROVIDER_ORDER || process.env.MOM_AI_PROVIDER_ORDER || 'ollama,openrouter,groq').split(',').map((id) => id.trim()).filter(Boolean);
+const INTERVIEW_PROVIDERS = (process.env.MOM_AI_INTERVIEW_PROVIDER_ORDER || 'groq,ollama,openrouter').split(',').map((id) => id.trim()).filter(Boolean);
+const GENERATION_PROVIDERS = (process.env.MOM_AI_GENERATION_PROVIDER_ORDER || 'ollama,openrouter,groq').split(',').map((id) => id.trim()).filter(Boolean);
 
 const DEFAULT_MODELS = {
   groq: ['openai/gpt-oss-120b', 'openai/gpt-oss-20b'],
