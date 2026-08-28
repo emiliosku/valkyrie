@@ -30,27 +30,70 @@ function parseIni(text) {
 }
 function validateQuest(input, catalog) {
   const files = safeFiles(input);
-  const errors = []; const warnings = []; const sections = {};
-  for (const [file, text] of Object.entries(files)) for (const [name, section] of Object.entries(parseIni(text))) {
+  const errors = []; const warnings = []; const sections = {}; const byFile = {};
+  for (const [file, text] of Object.entries(files)) {
+    byFile[file] = parseIni(text);
+    for (const [name, section] of Object.entries(byFile[file])) {
     if (sections[name]) errors.push(`Duplicate section [${name}]`); else sections[name] = { ...section, file };
+    }
   }
   const quest = sections.Quest;
   if (!quest) return { errors: ['Missing [Quest] section'], warnings };
   if (Number(quest.keys.format) < 4 || Number(quest.keys.format) > 21 || !Number.isInteger(Number(quest.keys.format))) errors.push('Quest format must be an integer from 4 through 21');
   if (quest.keys.type !== 'MoM') errors.push('Quest type must be MoM');
+  if (quest.keys.defaultlanguage !== 'English') errors.push('Quest defaultlanguage must be English');
+  if (!quest.keys['name.English']) errors.push('Quest must define name.English');
   if (!files['Localization.English.txt']) errors.push('Missing Localization.English.txt');
+  if (!sections.QuestText || !sections.QuestText.bare.includes('Localization.English.txt')) errors.push('[QuestText] must list Localization.English.txt');
+  if (!sections.QuestData) errors.push('Missing [QuestData] section');
+  const declaredFiles = new Set((sections.QuestData || { bare: [] }).bare);
+  for (const required of ['tiles.ini', 'events.ini', 'tokens.ini']) if (!declaredFiles.has(required)) errors.push(`[QuestData] must list ${required}`);
+  for (const listed of declaredFiles) if (!files[listed]) errors.push(`[QuestData] references missing ${listed}`);
   if (!sections.EventStart) errors.push('Missing [EventStart] section');
-  for (const listed of (sections.QuestData || { bare: [] }).bare) if (!files[listed]) errors.push(`[QuestData] references missing ${listed}`);
   for (const [name, section] of Object.entries(sections)) {
     if (['Quest', 'QuestData', 'QuestText'].includes(name)) continue;
     const count = Number(section.keys.buttons || 0);
     if (!Number.isInteger(count) || count < 0) errors.push(`[${name}] has invalid buttons value`);
-    for (let i = 1; i <= count; i++) if (!section.keys[`event${i}`]) errors.push(`[${name}] is missing event${i}`);
+    for (let i = 1; i <= count; i++) if (!Object.prototype.hasOwnProperty.call(section.keys, `event${i}`)) errors.push(`[${name}] is missing event${i}`);
     for (const key of Object.keys(section.keys)) if (/^event\d+$/.test(key)) {
       const target = section.keys[key].split(',')[0].trim();
       if (target && !sections[target]) errors.push(`[${name}] references undefined event ${target}`);
     }
   }
+  const added = new Set(Object.values(sections).flatMap((section) => String(section.keys.add || '').split(/\s+/).filter(Boolean)));
+  const tiles = byFile['tiles.ini'] || {};
+  if (!Object.keys(tiles).length) errors.push('tiles.ini must define at least one [Tile...] section');
+  for (const [name, section] of Object.entries(tiles)) {
+    if (!name.startsWith('Tile')) errors.push(`tiles.ini section [${name}] must start with Tile`);
+    if (!section.keys.side) errors.push(`[${name}] must define lowercase side=TileSide...`);
+    if (!Number.isFinite(Number(section.keys.xposition)) || !Number.isFinite(Number(section.keys.yposition))) errors.push(`[${name}] must define numeric xposition and yposition`);
+    if (!added.has(name)) errors.push(`[${name}] is never added by an event`);
+  }
+  const tokens = byFile['tokens.ini'] || {};
+  for (const [name, section] of Object.entries(tokens)) {
+    if (!name.startsWith('Token')) errors.push(`tokens.ini section [${name}] must start with Token`);
+    if (!section.keys.type) errors.push(`[${name}] must define lowercase type=Token...`);
+    if (!Number.isFinite(Number(section.keys.xposition)) || !Number.isFinite(Number(section.keys.yposition))) errors.push(`[${name}] must define numeric xposition and yposition`);
+    if (!added.has(name)) errors.push(`[${name}] is never added by an event`);
+  }
+  const spawns = byFile['spawns.ini'] || {};
+  for (const [name, section] of Object.entries(spawns)) {
+    if (!name.startsWith('Spawn')) errors.push(`spawns.ini section [${name}] must start with Spawn`);
+    if (!section.keys.monster) errors.push(`[${name}] must define lowercase monster=Monster...`);
+    if (!Number.isFinite(Number(section.keys.xposition)) || !Number.isFinite(Number(section.keys.yposition))) errors.push(`[${name}] must define numeric xposition and yposition`);
+    if (!added.has(name)) errors.push(`[${name}] is never added by an event`);
+  }
+  const events = byFile['events.ini'] || {};
+  const localization = files['Localization.English.txt'] || '';
+  if (!Object.keys(events).length) errors.push('events.ini must define [EventStart] and scenario events');
+  for (const [name, section] of Object.entries(events)) {
+    if (!name.startsWith('Event')) errors.push(`events.ini section [${name}] must start with Event`);
+    if (!Object.prototype.hasOwnProperty.call(section.keys, 'display')) errors.push(`[${name}] must define lowercase display=true or display=false`);
+    const buttons = Number(section.keys.buttons || 0);
+    if (section.keys.display === 'true' && buttons > 0 && !new RegExp(`^qst:${name.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}\\.text,`, 'm').test(localization)) warnings.push(`[${name}] is missing qst:${name}.text localization`);
+  }
+  if (!String((sections.EventStart || { keys: {} }).keys.trigger || '').includes('EventStart')) errors.push('[EventStart] must define trigger=EventStart');
+  if (!Object.values(events).some((section) => String(section.keys.operations || '').includes('$end,=,1'))) errors.push('Scenario must contain a terminal event with operations=$end,=,1');
   if (catalog) {
     const declaredPacks = new Set(String(quest.keys.packs || '').split(/\s+/).filter(Boolean));
     const selectedPacks = new Set(catalog.selectedPackIds);

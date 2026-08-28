@@ -20,6 +20,19 @@ test('requires a supported format and EventStart', () => {
   assert.ok(result.errors.some((error) => error.includes('4 through 21')));
   assert.ok(result.errors.some((error) => error.includes('EventStart')));
 });
+test('rejects generic INI syntax that Valkyrie cannot load', () => {
+  const result = validateQuest({
+    'quest.ini': '[Quest]\nformat=21\ntype=MoM\npacks=MoMBase\nname=Incorrect Schema\n',
+    'tiles.ini': '[Tile1]\nId=TileSideLobby\nOrientation=0\n',
+    'tokens.ini': '[TokenClue]\nId=TokenClue\nName=Clue\n',
+    'events.ini': '[EventStart]\nName=EventStart\nText=Begin\nButton1=Begin\nEvent1=EventEnd\n\n[EventEnd]\nText=End\n',
+    'Localization.English.txt': '.,English\n',
+  }, selectedCatalog(loadCatalog(), []));
+  assert.ok(result.errors.some((error) => error.includes('Missing [QuestData]')));
+  assert.ok(result.errors.some((error) => error.includes('lowercase side')));
+  assert.ok(result.errors.some((error) => error.includes('lowercase type')));
+  assert.ok(result.errors.some((error) => error.includes('lowercase display')));
+});
 test('mock interview produces a valid quest after review', async () => {
   const first = await createInterview('A forgotten archive', true, store, selectedCatalog(loadCatalog(), []));
   assert.equal(first.state, 'question');

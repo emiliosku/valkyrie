@@ -43,9 +43,9 @@ Interview stages use fast-inference providers (Groq completes in ~1-2s). Generat
 | Hugging Face Inference Providers | `HF_TOKEN` | OpenAI-compatible router | None; set an explicitly verified free model list. |
 | Gemini | `GEMINI_API_KEY` | Native `generateContent` | None; set an explicitly verified free model list. |
 
-Only providers with a configured key and non-empty verified-free model policy participate. Change the stage-specific orders with `MOM_AI_INTERVIEW_PROVIDER_ORDER` and `MOM_AI_GENERATION_PROVIDER_ORDER`. Set `MOM_AI_PROVIDER_ORDER` as a fallback for both if stage-specific overrides are not set.
+Only providers with a configured key and non-empty verified-free model policy participate. Change the stage-specific orders with `MOM_AI_INTERVIEW_PROVIDER_ORDER` and `MOM_AI_GENERATION_PROVIDER_ORDER`. The retired `MOM_AI_PROVIDER_ORDER` is ignored.
 
-Temporary availability, schema, and rate-limit failures retry the next eligible provider/model. A timeout or rate-limit failure cools the entire provider so remaining models are skipped immediately. Authentication and invalid-input failures do not fall through. Mock mode is explicit and is never an automatic fallback.
+Temporary availability, schema, and rate-limit failures retry the next eligible provider/model. A timeout or rate-limit failure cools the entire provider so remaining models are skipped immediately. Authentication and invalid-input failures do not fall through. Mock mode is explicit and is never an automatic fallback. A package is available for download only after structural validation and narrative review complete; if a required review or repair cannot run, generation remains retryable rather than producing an unchecked package.
 
 Verified-free policies may be overridden after independently confirming both zero cost and API compatibility: `MOM_AI_OLLAMA_FREE_MODELS`, `MOM_AI_OPENROUTER_FREE_MODELS`, `MOM_AI_GROQ_FREE_MODELS`, `MOM_AI_HF_FREE_MODELS`, and `MOM_AI_GEMINI_FREE_MODELS`. Models merely present in a provider catalog are intentionally excluded, preventing a silent paid fallback.
 
