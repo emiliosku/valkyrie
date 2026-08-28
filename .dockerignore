@@ -1,0 +1,51 @@
+.git
+.gitignore
+.editorconfig
+*.valkyrie
+*.rtf
+*.nsi
+
+# Large root-level images
+RegularQuest.png
+CustomQuest.png
+
+# Unity project — exclude everything except the MoM catalog
+unity/Assets/Plugins/
+unity/Assets/Scripts/
+unity/Assets/Resources/
+unity/Assets/Editor/
+unity/Assets/TextMesh Pro/
+unity/Assets/UnitTests/
+unity/Assets/google-services.json
+unity/Packages/
+unity/ProjectSettings/
+unity/Library/
+unity/Temp/
+unity/Logs/
+unity/obj/
+
+# Web landing pages (not part of the service)
+web/
+wiki/
+docs/
+build/
+libraries/
+workflowScripts/
+compile-results.log
+compile-check.log
+
+# OS junk
+.DS_Store
+Thumbs.db
+
+# Node test artifacts
+node_modules/
+coverage/
+
+# Valkyrie content packs we don't need (D2E)
+unity/Assets/StreamingAssets/content/D2E/
+unity/Assets/StreamingAssets/text/
+
+# Tile artwork comes from the server-side import volume, not the image.
+unity/Assets/StreamingAssets/content/MoM/**/img/
+unity/Assets/StreamingAssets/content/MoM/**/*.meta

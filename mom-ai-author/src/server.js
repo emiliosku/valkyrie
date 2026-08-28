@@ -10,7 +10,7 @@ const { packageQuest } = require('./quest');
 const { loadCatalog, selectedCatalog } = require('./catalog');
 const { TARGET_PACKS, createTileStore } = require('./tiles');
 
-const host = '127.0.0.1';
+const host = process.env.HOST || '127.0.0.1';
 const port = Number(process.env.PORT || 3000);
 const publicDir = path.join(__dirname, '..', 'public');
 const outDir = path.join(store.dataDir, 'out');
