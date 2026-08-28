@@ -43,7 +43,15 @@ function validateQuest(input, catalog) {
   if (quest.keys.type !== 'MoM') errors.push('Quest type must be MoM');
   if (quest.keys.defaultlanguage !== 'English') errors.push('Quest defaultlanguage must be English');
   if (!quest.keys['name.English']) errors.push('Quest must define name.English');
+  if (!quest.keys.difficulty || !Number.isFinite(Number(quest.keys.difficulty))) errors.push('Quest must define numeric difficulty (e.g. 1.5)');
+  if (!quest.keys.lengthmin || !Number.isFinite(Number(quest.keys.lengthmin))) errors.push('Quest must define numeric lengthmin (estimated minutes)');
+  if (!quest.keys.lengthmax || !Number.isFinite(Number(quest.keys.lengthmax))) errors.push('Quest must define numeric lengthmax (estimated minutes)');
   if (!files['Localization.English.txt']) errors.push('Missing Localization.English.txt');
+  const localization = files['Localization.English.txt'] || '';
+  if (!/^quest\.name,/m.test(localization)) errors.push('Localization must define quest.name (display title)');
+  if (!/^quest\.description,/m.test(localization)) errors.push('Localization must define quest.description (synopsis)');
+  if (!/^quest\.authors,/m.test(localization)) warnings.push('Localization should define quest.authors');
+  if (!/^quest\.authors_short,/m.test(localization)) warnings.push('Localization should define quest.authors_short');
   if (!sections.QuestText || !sections.QuestText.bare.includes('Localization.English.txt')) errors.push('[QuestText] must list Localization.English.txt');
   if (!sections.QuestData) errors.push('Missing [QuestData] section');
   const declaredFiles = new Set((sections.QuestData || { bare: [] }).bare);
@@ -84,7 +92,6 @@ function validateQuest(input, catalog) {
     if (!added.has(name)) errors.push(`[${name}] is never added by an event`);
   }
   const events = byFile['events.ini'] || {};
-  const localization = files['Localization.English.txt'] || '';
   if (!Object.keys(events).length) errors.push('events.ini must define [EventStart] and scenario events');
   for (const [name, section] of Object.entries(events)) {
     if (!name.startsWith('Event')) errors.push(`events.ini section [${name}] must start with Event`);
