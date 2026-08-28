@@ -49,7 +49,8 @@ function validateQuest(input, catalog) {
   if (!files['Localization.English.txt']) errors.push('Missing Localization.English.txt');
   const localization = files['Localization.English.txt'] || '';
   if (!/^quest\.name,/m.test(localization)) errors.push('Localization must define quest.name (display title)');
-  if (!/^quest\.description,/m.test(localization)) errors.push('Localization must define quest.description (synopsis)');
+  if (!/^quest\.synopsys,/m.test(localization)) errors.push('Localization must define quest.synopsys (shown in quest card, max ~100 chars)');
+  if (!/^quest\.description,/m.test(localization)) warnings.push('Localization should define quest.description (shown in quest details)');
   if (!/^quest\.authors,/m.test(localization)) warnings.push('Localization should define quest.authors');
   if (!/^quest\.authors_short,/m.test(localization)) warnings.push('Localization should define quest.authors_short');
   if (!sections.QuestText || !sections.QuestText.bare.includes('Localization.English.txt')) errors.push('[QuestText] must list Localization.English.txt');
