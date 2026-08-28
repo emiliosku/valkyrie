@@ -5,8 +5,6 @@ const { complete, parseJson } = require('./llm');
 const { validateQuest } = require('./quest');
 const { promptCatalog } = require('./catalog');
 
-const PROMPT_VERSION = 1;
-const CRITIC_VERSION = 1;
 const MAX_QUESTIONS = 5;
 const MAX_SESSIONS = 50;
 const sessions = new Map();
@@ -49,11 +47,9 @@ async function next(session, store, forceReady = false) {
 }
 async function createInterview(idea, mock, store, catalog) { sweepSessions(); if (sessions.size >= MAX_SESSIONS) { const error = new Error('Too many active interviews; try again shortly'); error.status = 429; throw error; } const session = { id: crypto.randomUUID(), idea, mock, catalog, answers: [], questions: 0, state: 'new', createdAt: Date.now() }; sessions.set(session.id, session); try { return await next(session, store); } catch (error) { sessions.delete(session.id); throw error; } }
 async function answer(id, answerId, customResponse, store) { const session = get(id); if (session.busy) { const error = new Error('Interview is already processing an answer'); error.status = 409; throw error; } if (session.state !== 'question') throw new Error('Interview is not awaiting an answer'); const choice = session.question.options.find((option) => option.id === answerId); const text = String(customResponse || (choice && choice.label) || '').trim(); if (!text || text.length > 1000) throw new Error('Choose an answer or provide a response up to 1000 characters'); session.busy = true; try { session.answers.push({ question: session.question.question, answerId: choice && choice.id, text }); return await next(session, store, session.questions >= MAX_QUESTIONS); } finally { session.busy = false; } }
-async function review(id, reviewData, store, policyVersion) {
-  const session = get(id); if (session.state !== 'review') throw new Error('Story bible is not ready for review'); const ratings = reviewData.ratings || {};
-  for (const key of ['hook', 'atmosphere', 'coherence', 'agency', 'pacing', 'momFit', 'finale']) if (!Number.isInteger(ratings[key]) || ratings[key] < 1 || ratings[key] > 5) throw new Error(`Invalid ${key} rating`);
+async function review(id, reviewData, store) {
+  const session = get(id); if (session.state !== 'review') throw new Error('Story bible is not ready for review');
   session.approved = !!reviewData.approved; session.feedback = String(reviewData.feedback || '').slice(0, 1000);
-  store.recordReview({ model: session.model, policyVersion, promptVersion: PROMPT_VERSION, criticVersion: CRITIC_VERSION, ratings, approved: session.approved, validatorPassed: true, repairs: 0, latencyMs: session.latencyMs });
   if (!session.approved && session.feedback) {
     const result = await complete(store, [{ role: 'system', content: `${architectPrompt()} Return state=ready and revise only the story bible using the feedback.` }, { role: 'user', content: JSON.stringify({ storyBible: session.storyBible, feedback: session.feedback }) }], { mock: session.mock, stage: 'revision', accept: (text) => bibleValid(parseJson(text)), timeoutMs: 120000, temperature: 0.6, mockText: () => JSON.stringify({ state: 'ready', storyBible: { ...session.storyBible, premise: `${session.storyBible.premise} ${session.feedback}` } }) });
     const payload = parseJson(result.text); if (!bibleValid(payload)) throw new Error('Model did not return a valid revised story bible'); session.storyBible = payload.storyBible; session.model = result.key;
@@ -90,7 +86,7 @@ async function generate(id, store) {
       }
     } catch (error) { validation.warnings.push(`Narrative review skipped: ${error.message}`); }
   }
-  session.generated = true; store.recordOutcome({ model: result.key, validatorPassed: !validation.errors.length, repairs, latencyMs: result.latencyMs || Date.now() - started });
+  session.generated = true;
   return { ...(generated || { name: 'scenario', files: {} }), validation, model: result.model, latencyMs: result.latencyMs || Date.now() - started };
 }
 module.exports = { createInterview, answer, review, generate, get, questionValid, bibleValid };

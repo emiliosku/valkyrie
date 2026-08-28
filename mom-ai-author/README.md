@@ -22,23 +22,24 @@ Keys are read only by the local service and are never sent to the browser or Val
 
 Before an interview, select the MoM expansions the case may use. `MoMBase` is always required. The companion parses Valkyrie's checked-in MoM pack manifests and validates generated tile, monster, investigator, item/spell, token, UI image, and audio IDs against that selected catalog. It does not ship or inspect official FFG artwork or audio, so asset availability remains a player-import warning until the future Unity-editor integration can use its live loaded catalog.
 
-The user never selects a provider or model. The server tries configured verified-free candidates in provider order, while still ranking models within a provider from local narrative and reliability observations.
+The user never selects a provider or model. The server tries configured verified-free candidates in fixed provider and model order.
 
 | Provider | Key | Transport | Default verified-free models |
 | --- | --- | --- | --- |
 | Ollama Cloud | `OLLAMA_API_KEY` | Native Ollama chat API | `nemotron-3-ultra`, `gpt-oss:120b`, `minimax-m3`, `nemotron-3-super`, `gemma4:31b`, `nemotron-3-nano:30b`, `gpt-oss:20b` |
+| OpenRouter | `OPENROUTER_API_KEY` | OpenAI-compatible | `openrouter/free`, OpenRouter's free-only router with upstream failover |
 | Hugging Face Inference Providers | `HF_TOKEN` | OpenAI-compatible router | None; set an explicitly verified free model list. |
 | Groq | `GROQ_API_KEY` | OpenAI-compatible | `openai/gpt-oss-120b`, `openai/gpt-oss-20b`, `qwen/qwen3.6-27b` |
 | OpenCode Zen | `OPENCODE_API_KEY` | OpenAI-compatible | Zen's current verified-free policy |
 | Gemini | `GEMINI_API_KEY` | Native `generateContent` | None; set an explicitly verified free model list. |
 
-The default provider order is `ollama,huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`. A provider's default list is a cold-start quality preference; after five rated outcomes, the local narrative/reliability score reorders its eligible models.
+The default provider order is `ollama,openrouter,huggingface,groq,zen,gemini`; only providers with a configured key and non-empty verified-free model policy participate. Change the order with `MOM_AI_PROVIDER_ORDER`. Provider and model order is fixed for every request.
 
 Temporary availability, schema, and rate-limit failures retry the next eligible provider/model. A failing candidate enters a local cooldown, honoring `Retry-After` when supplied. Authentication and invalid-input failures do not fall through. Mock mode is explicit and is never an automatic fallback.
 
-Verified-free policies may be overridden after independently confirming both zero cost and API compatibility: `MOM_AI_OLLAMA_FREE_MODELS`, `MOM_AI_FREE_MODELS` (Zen), `MOM_AI_GROQ_FREE_MODELS`, `MOM_AI_HF_FREE_MODELS`, and `MOM_AI_GEMINI_FREE_MODELS`. Models merely present in a provider catalog are intentionally excluded, preventing a silent paid fallback.
+Verified-free policies may be overridden after independently confirming both zero cost and API compatibility: `MOM_AI_OLLAMA_FREE_MODELS`, `MOM_AI_OPENROUTER_FREE_MODELS`, `MOM_AI_FREE_MODELS` (Zen), `MOM_AI_GROQ_FREE_MODELS`, `MOM_AI_HF_FREE_MODELS`, and `MOM_AI_GEMINI_FREE_MODELS`. Models merely present in a provider catalog are intentionally excluded, preventing a silent paid fallback.
 
-Story-bible ratings and operational outcomes are stored only in `~/.local/share/valkyrie-ai-author/ratings.sqlite` by default. They improve the local ranking after at least five rated reviews per model. Set `MOM_AI_DATA_DIR` to override the local data directory.
+Story-bible ratings and model-performance statistics are not collected. `MOM_AI_DATA_DIR` controls only the temporary package output directory.
 
 ## Limits and safety
 

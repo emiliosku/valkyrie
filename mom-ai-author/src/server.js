@@ -5,7 +5,6 @@ const http = require('http');
 const path = require('path');
 const crypto = require('crypto');
 const store = require('./store');
-const { POLICY_VERSION } = require('./policy');
 const interview = require('./interview');
 const { packageQuest } = require('./quest');
 const { loadCatalog, selectedCatalog } = require('./catalog');
@@ -29,8 +28,8 @@ async function route(req, res) {
   if (req.method === 'GET' && url.pathname === '/v1/catalog') return json(res, 200, loadCatalog());
   if (req.method === 'POST' && url.pathname === '/v1/interviews') { const input = await body(req); const idea = String(input.idea || '').trim(); if (!idea || idea.length > 4000) return json(res, 400, { error: 'Provide an idea up to 4000 characters.' }); if (input.selectedPacks !== undefined && (!Array.isArray(input.selectedPacks) || input.selectedPacks.length > 18 || input.selectedPacks.some((pack) => typeof pack !== 'string'))) return json(res, 400, { error: 'selectedPacks must be an array of MoM pack IDs.' }); return json(res, 201, await interview.createInterview(idea, input.mock === true, store, selectedCatalog(loadCatalog(), input.selectedPacks))); }
   if (req.method === 'POST' && parts.length === 4 && parts[0] === 'v1' && parts[1] === 'interviews' && parts[3] === 'answers') { const input = await body(req); return json(res, 200, await interview.answer(parts[2], input.answerId, input.customResponse, store)); }
-  if (req.method === 'POST' && parts.length === 4 && parts[0] === 'v1' && parts[1] === 'interviews' && parts[3] === 'review') { const input = await body(req); return json(res, 200, await interview.review(parts[2], input, store, POLICY_VERSION)); }
-  if (req.method === 'POST' && parts.length === 4 && parts[0] === 'v1' && parts[1] === 'interviews' && parts[3] === 'generate') { const result = await interview.generate(parts[2], store, POLICY_VERSION); if (result.validation.errors.length) return json(res, 422, { error: 'Generated quest did not pass validation.', validation: result.validation }); return json(res, 200, { name: result.name, validation: result.validation, download: download(result), files: result.validation.files }); }
+  if (req.method === 'POST' && parts.length === 4 && parts[0] === 'v1' && parts[1] === 'interviews' && parts[3] === 'review') { const input = await body(req); return json(res, 200, await interview.review(parts[2], input, store)); }
+  if (req.method === 'POST' && parts.length === 4 && parts[0] === 'v1' && parts[1] === 'interviews' && parts[3] === 'generate') { const result = await interview.generate(parts[2], store); if (result.validation.errors.length) return json(res, 422, { error: 'Generated quest did not pass validation.', validation: result.validation }); return json(res, 200, { name: result.name, validation: result.validation, download: download(result), files: result.validation.files }); }
   if (req.method === 'GET' && parts.length === 3 && parts[0] === 'v1' && parts[1] === 'download') { clearExpiredDownloads(); const item = downloads.get(parts[2]); if (!item) return text(res, 404, 'not found', 'text/plain'); res.writeHead(200, { 'content-type': 'application/octet-stream', 'content-disposition': `attachment; filename="${path.basename(item.file)}"` }); return fs.createReadStream(item.file).pipe(res); }
   return json(res, 404, { error: 'Not found' });
 }

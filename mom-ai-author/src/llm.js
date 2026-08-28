@@ -11,7 +11,9 @@ async function openAiChat(candidate, messages, options, fetchImpl) {
   const config = PROVIDERS[candidate.provider]; const key = process.env[config.key]; if (!key) throw providerError(`${config.key} is not set`, 401);
   const controller = new AbortController(); const timer = setTimeout(() => controller.abort(), options.timeoutMs || 45000);
   try {
-    const response = await fetchImpl(`${config.baseUrl}/chat/completions`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify({ model: candidate.model, messages, temperature: options.temperature || 0.3, max_tokens: options.maxTokens || 1600 }) });
+    const body = { model: candidate.model, messages, temperature: options.temperature || 0.3, max_tokens: options.maxTokens || 1600 };
+    if (candidate.provider === 'openrouter') body.response_format = { type: 'json_object' };
+    const response = await fetchImpl(`${config.baseUrl}/chat/completions`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify(body) });
     if (!response.ok) throw providerError(`${candidate.provider} request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
     const text = completionText(await response.json()); if (!text) throw providerError(`${candidate.provider} returned an empty completion`, 502); return text;
   } catch (error) { if (error.name === 'AbortError') throw providerError(`${candidate.provider} request timed out`, 408); throw error; } finally { clearTimeout(timer); }
