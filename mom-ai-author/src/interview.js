@@ -37,6 +37,7 @@ function mockQuest(session) {
 function questionValid(payload) { return payload && payload.state === 'question' && typeof payload.question === 'string' && payload.question.length <= 500 && Array.isArray(payload.options) && payload.options.length >= 2 && payload.options.length <= 4 && payload.options.every((item) => /^[a-z0-9-]{1,40}$/.test(item.id) && typeof item.label === 'string' && item.label.length <= 120); }
 function bibleValid(payload) { return payload && payload.state === 'ready' && payload.storyBible && typeof payload.storyBible.title === 'string' && payload.storyBible.title.length <= 120; }
 function generatedFilesValid(text) { const payload = parseJson(text); return !!(payload && payload.files && typeof payload.files === 'object'); }
+function validationDiagnostic(stage, result, validation) { if (process.env.MOM_AI_DEBUG === 'true') console.info(`[mom-ai-author:debug] validation ${JSON.stringify({ stage, candidate: result.key, outputBytes: Buffer.byteLength(result.text || '', 'utf8'), errors: validation.errors, warnings: validation.warnings })}`); }
 function sweepSessions() { for (const [id, session] of sessions) if (Date.now() - session.createdAt > 60 * 60 * 1000) sessions.delete(id); }
 function get(id) { sweepSessions(); const session = sessions.get(id); if (!session) throw new Error('Interview session expired'); return session; }
 function publicSession(session) { return { id: session.id, state: session.state, question: session.question, storyBible: session.storyBible }; }
@@ -68,8 +69,8 @@ async function critique(session, generated, store) {
 async function generate(id, store) {
   const session = get(id); if (session.generated) throw new Error('This interview already generated a package'); if (session.state !== 'review' || !session.approved) throw new Error('Approve the story bible before generation'); const started = Date.now(); let repairs = 0;
   let result = session.mock ? { text: JSON.stringify(mockQuest(session)), provider: 'mock', model: 'mock', key: 'mock', latencyMs: 0 } : await complete(store, [{ role: 'system', content: generationPrompt(session) }, { role: 'user', content: 'Generate the complete scenario now.' }], { stage: 'generation', accept: generatedFilesValid, timeoutMs: 180000, maxTokens: 4000, temperature: 0.2 });
-  let generated = parseJson(result.text); let validation = validateGenerated(generated, session.catalog);
-  while (!session.mock && validation.errors.length && repairs < 2) { repairs += 1; result = await complete(store, [{ role: 'system', content: repairPrompt(session) }, { role: 'user', content: `Validation errors: ${JSON.stringify(validation.errors)}\nPackage to repair: ${JSON.stringify(generated)}` }], { stage: 'repair', accept: generatedFilesValid, timeoutMs: 180000, maxTokens: 4000, temperature: 0.15 }); generated = parseJson(result.text); validation = validateGenerated(generated, session.catalog); }
+  let generated = parseJson(result.text); let validation = validateGenerated(generated, session.catalog); validationDiagnostic('generation', result, validation);
+  while (!session.mock && validation.errors.length && repairs < 2) { repairs += 1; result = await complete(store, [{ role: 'system', content: repairPrompt(session) }, { role: 'user', content: `Validation errors: ${JSON.stringify(validation.errors)}\nPackage to repair: ${JSON.stringify(generated)}` }], { stage: 'repair', accept: generatedFilesValid, timeoutMs: 180000, maxTokens: 4000, temperature: 0.15 }); generated = parseJson(result.text); validation = validateGenerated(generated, session.catalog); validationDiagnostic('repair', result, validation); }
   if (!validation.errors.length && !session.mock) {
     try {
       const critiqueResult = await critique(session, generated, store);

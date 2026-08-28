@@ -2,6 +2,8 @@
 
 const { PROVIDERS, providerCandidates } = require('./policy');
 
+function debug(event, data) { if (process.env.MOM_AI_DEBUG === 'true') console.info(`[mom-ai-author:debug] ${event} ${JSON.stringify(data)}`); }
+function messageBytes(messages) { return messages.reduce((total, message) => total + Buffer.byteLength(String(message.content || ''), 'utf8'), 0); }
 function parseJson(text) { const match = String(text || '').match(/```(?:json)?\s*([\s\S]*?)```/i); try { return JSON.parse((match ? match[1] : text).trim()); } catch (_) { return null; } }
 function completionText(data) { const content = data && data.choices && data.choices[0] && data.choices[0].message && data.choices[0].message.content; if (typeof content === 'string') return content; if (Array.isArray(content)) return content.map((part) => part.text || part.content || '').join(''); return ''; }
 function providerError(message, status, retryAfterMs, detail) { const error = new Error(message); error.status = status; error.retryAfterMs = retryAfterMs; error.detail = detail; return error; }
@@ -15,7 +17,9 @@ async function openAiChat(candidate, messages, options, fetchImpl) {
     if (candidate.provider === 'openrouter') body.response_format = { type: 'json_object' };
     const response = await fetchImpl(`${config.baseUrl}/chat/completions`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json', authorization: `Bearer ${key}` }, body: JSON.stringify(body) });
     if (!response.ok) throw providerError(`${candidate.provider} request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
-    const text = completionText(await response.json()); if (!text) throw providerError(`${candidate.provider} returned an empty completion`, 502); return text;
+    const data = await response.json(); const text = completionText(data);
+    debug('openai-response', { stage: options.stage, candidate: candidate.key, finishReason: data.choices && data.choices[0] && data.choices[0].finish_reason, outputBytes: Buffer.byteLength(text, 'utf8'), usage: data.usage });
+    if (!text) throw providerError(`${candidate.provider} returned an empty completion`, 502); return text;
   } catch (error) { if (error.name === 'AbortError') throw providerError(`${candidate.provider} request timed out`, 408); throw error; } finally { clearTimeout(timer); }
 }
 async function geminiChat(candidate, messages, options, fetchImpl) {
@@ -26,7 +30,9 @@ async function geminiChat(candidate, messages, options, fetchImpl) {
   try {
     const response = await fetchImpl(`${config.baseUrl}/models/${encodeURIComponent(candidate.model)}:generateContent?key=${encodeURIComponent(key)}`, { method: 'POST', signal: controller.signal, headers: { 'content-type': 'application/json' }, body: JSON.stringify({ systemInstruction: system ? { parts: [{ text: system }] } : undefined, contents, generationConfig: { temperature: options.temperature || 0.3, maxOutputTokens: options.maxTokens || 1600, responseMimeType: 'application/json' } }) });
     if (!response.ok) throw providerError(`gemini request failed with ${response.status}`, response.status, retryAfter(response), await responseDetail(response));
-    const data = await response.json(); const text = (((data.candidates || [])[0] || {}).content || {}).parts || []; const joined = text.map((part) => part.text || '').join(''); if (!joined) throw providerError('gemini returned an empty completion', 502); return joined;
+    const data = await response.json(); const text = (((data.candidates || [])[0] || {}).content || {}).parts || []; const joined = text.map((part) => part.text || '').join('');
+    debug('gemini-response', { stage: options.stage, candidate: candidate.key, finishReason: ((data.candidates || [])[0] || {}).finishReason, outputBytes: Buffer.byteLength(joined, 'utf8'), usage: data.usageMetadata });
+    if (!joined) throw providerError('gemini returned an empty completion', 502); return joined;
   } catch (error) { if (error.name === 'AbortError') throw providerError('gemini request timed out', 408); throw error; } finally { clearTimeout(timer); }
 }
 async function ollamaChat(candidate, messages, options, fetchImpl) {
@@ -42,6 +48,7 @@ async function ollamaChat(candidate, messages, options, fetchImpl) {
     // Some Ollama Cloud models ignore think:false and still place useful output
     // in message.thinking while leaving message.content empty.
     const text = (data.message && data.message.content) || (data.message && data.message.thinking) || '';
+    debug('ollama-response', { stage: options.stage, candidate: candidate.key, doneReason: data.done_reason, outputBytes: Buffer.byteLength(text, 'utf8'), contentBytes: Buffer.byteLength((data.message && data.message.content) || '', 'utf8'), thinkingBytes: Buffer.byteLength((data.message && data.message.thinking) || '', 'utf8'), promptEvalCount: data.prompt_eval_count, evalCount: data.eval_count, totalDurationNs: data.total_duration });
     if (!text) throw providerError('ollama returned an empty completion', 502, undefined, JSON.stringify({ done_reason: data.done_reason, model: data.model }).slice(0, 500));
     return text;
   } catch (error) { if (error.name === 'AbortError') throw providerError('ollama request timed out', 408); throw error; } finally { clearTimeout(timer); }
@@ -70,14 +77,16 @@ async function complete(store, messages, options = {}) {
     const started = Date.now();
     try {
       console.info(`[mom-ai-author:${options.stage || 'completion'}] trying ${candidate.key}`);
+      debug('request', { stage: options.stage || 'completion', candidate: candidate.key, promptBytes: messageBytes(messages), messageCount: messages.length, maxTokens: options.maxTokens || 1600, timeoutMs: options.timeoutMs || 45000 });
       const text = await callCandidate(candidate, messages, options, options.fetchImpl || fetch);
+      debug('completion', { stage: options.stage || 'completion', candidate: candidate.key, elapsedMs: Date.now() - started, outputBytes: Buffer.byteLength(text, 'utf8') });
       if (options.accept && !options.accept(text)) throw providerError(`${candidate.provider} returned an unusable structured response`, 502);
       return { text, provider: candidate.provider, model: candidate.model, key: candidate.key, fallbacks, latencyMs: Date.now() - started };
     } catch (error) {
-      if (!retryable(error)) throw error; cool(candidate, error); console.warn(`[mom-ai-author:${options.stage || 'completion'}] ${candidate.key} failed with ${error.status || 'network'}${error.detail ? `: ${error.detail}` : ''}; trying the next candidate`); fallbacks.push({ provider: candidate.provider, model: candidate.model, reason: error.message });
+      if (!retryable(error)) throw error; cool(candidate, error); debug('failure', { stage: options.stage || 'completion', candidate: candidate.key, status: error.status || 'network', elapsedMs: Date.now() - started, detail: error.detail }); console.warn(`[mom-ai-author:${options.stage || 'completion'}] ${candidate.key} failed with ${error.status || 'network'}${error.detail ? `: ${error.detail}` : ''}; trying the next candidate`); fallbacks.push({ provider: candidate.provider, model: candidate.model, reason: error.message });
     }
   }
   throw providerError('All configured verified-free provider models are temporarily unavailable', 503);
 }
 
-module.exports = { parseJson, complete, callCandidate, retryable, completionText, providerError };
+module.exports = { parseJson, complete, callCandidate, retryable, completionText, providerError, debug };

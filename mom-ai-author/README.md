@@ -41,6 +41,8 @@ Verified-free policies may be overridden after independently confirming both zer
 
 Story-bible ratings and model-performance statistics are not collected. `MOM_AI_DATA_DIR` controls only the temporary package output directory.
 
+Set `MOM_AI_DEBUG=true` to log safe provider diagnostics: candidate, stage, prompt/output byte counts, elapsed time, provider completion metadata, and structural validation errors. It never logs API keys, prompt text, or generated quest contents.
+
 ## Limits and safety
 
 - The service binds to `127.0.0.1` by default and never stages files into Valkyrie's data directory.
