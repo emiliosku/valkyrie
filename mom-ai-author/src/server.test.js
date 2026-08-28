@@ -18,6 +18,15 @@ test('local HTTP mock flow produces a downloadable package', async (context) => 
   const catalog = await fetch(`${base}/v1/catalog`);
   assert.equal(catalog.status, 200);
   assert.ok((await catalog.json()).packs.some((pack) => pack.id === 'MoMBase'));
+  const annotator = await fetch(`${base}/annotator`);
+  assert.equal(annotator.status, 200);
+  assert.match(await annotator.text(), /Tile Port Drafting Table/);
+  const connector = await fetch(`${base}/connector`);
+  assert.equal(connector.status, 200);
+  assert.match(await connector.text(), /Tile Connection Reviewer/);
+  const tilePorts = await fetch(`${base}/v1/tile-ports`);
+  assert.equal(tilePorts.status, 200);
+  assert.equal(typeof (await tilePorts.json()).tiles, 'object');
   const oversized = await fetch(`${base}/v1/interviews`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ idea: 'x'.repeat(33 * 1024) }) });
   assert.equal(oversized.status, 413);
   const started = await post(base, '/v1/interviews', { idea: 'An archive beneath the manor', selectedPacks: ['RN'], mock: true });

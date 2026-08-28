@@ -24,6 +24,26 @@ Before an interview, select the MoM expansions the case may use. `MoMBase` is al
 
 The interview prompt includes a compact summary of available game content (monsters, tiles, items, spells, NPCs, game tokens) for the selected expansions so the model can reference real game entities during the creative process. Up to 10 interview questions are asked.
 
+## Reference quest analysis
+
+The layout work targets the base game, Path of the Serpent (`PotS`), and Streets of Arkham (`SoA`). Analyze locally downloaded Valkyrie quests before building layout rules:
+
+```bash
+node src/reference.js "$HOME/.config/Valkyrie/Download"
+```
+
+The report reads only `.ini` and localization text from each archive. It reports declared packs, tile positions and rotations, base/PotS/SoA tile coverage, token/spawn counts, event counts, localization size, and door/wall/barricade/trapdoor coordinates. Barrier entries include their coordinates relative to the nearest rotated tiles, which is the evidence used to annotate tile ports. It does not extract media, copy quest prose into generated scenarios, or make network requests. Reference layouts are evidence for the tile-port geometry manifest; they are not themselves proof that an arbitrary pair of tiles connects correctly.
+
+## Tile port drafting
+
+Open `http://127.0.0.1:3000/annotator` to annotate Base, Path of the Serpent, and Streets of Arkham tile sides from the player's imported Valkyrie game data. Click a printed boundary connection and select whether it is an open, door, or secret passage. Footprints are `height x width`: choose `1x2`, `2x2`, `2x3`, or `4x8` as appropriate. Ports snap to the center of the nearest `1x1` subtile, and the perimeter allows up to `2 * (width + height)` ports.
+
+The page reads only tile artwork referenced by Valkyrie's catalog and decodes its local DXT1/DXT5 DDS image in the browser. It never uploads or packages official game artwork. Annotations are stored as normalized edge offsets in `tile-ports.json` under `MOM_AI_DATA_DIR`, so they are independent of image resolution and tile rotation. Existing version 1 annotations are automatically snapped once to the corrected height-by-width grid when the annotator starts. Set `MOM_AI_IMPORT_ROOT` if the MoM `import` directory is not at the Linux default of `~/.config/Valkyrie/MoM/import`.
+
+## Tile connection review
+
+Open `http://127.0.0.1:3000/connector` to review all port-compatible, edge-specific links. The reviewer filters by Base, PotS, and SoA; excludes opposite sides of the same physical tile; and shows only door-to-door or open-passage-to-open-passage links. It aligns the two imported tile artworks at their matching wall and leaves different wall lengths for manual review. Decisions are stored in `tile-connections.json` under `MOM_AI_DATA_DIR`; geometric placement validation is deliberately deferred.
+
 Scenarios are investigator-agnostic: investigators are selected by the player before the game begins. The story must not reference, require, or assume any specific investigator. Named NPCs (witnesses, allies, antagonists, victims) may be introduced for storytelling purposes.
 
 The user never selects a provider or model. The server uses stage-aware provider routing:

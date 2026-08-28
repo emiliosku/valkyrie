@@ -2,6 +2,7 @@
 
 const fs = require('fs');
 const path = require('path');
+const zlib = require('zlib');
 
 const ALLOWED_FILES = new Set(['quest.ini', 'tiles.ini', 'events.ini', 'tokens.ini', 'spawns.ini', 'items.ini', 'ui.ini', 'monsters.ini', 'puzzles.ini', 'activations.ini', 'other.ini', 'Localization.English.txt']);
 function safeFiles(files) {
@@ -139,4 +140,25 @@ function packageQuest(name, files, directory) {
   return output;
 }
 
-module.exports = { safeFiles, parseIni, validateQuest, packageQuest };
+function readZipTextEntries(file, include = (name) => name.endsWith('.ini') || /^Localization\.[^.]+\.txt$/.test(name)) {
+  const archive = fs.readFileSync(file);
+  const endSignature = 0x06054b50; let end = -1;
+  for (let index = archive.length - 22; index >= Math.max(0, archive.length - 65557); index--) if (archive.readUInt32LE(index) === endSignature) { end = index; break; }
+  if (end < 0) throw new Error('Archive does not contain a ZIP end record');
+  const entries = archive.readUInt16LE(end + 10); const directoryOffset = archive.readUInt32LE(end + 16); let cursor = directoryOffset; let total = 0; const result = {};
+  for (let index = 0; index < entries; index++) {
+    if (cursor + 46 > archive.length || archive.readUInt32LE(cursor) !== 0x02014b50) throw new Error('Archive contains an invalid ZIP directory entry');
+    const flags = archive.readUInt16LE(cursor + 8); const method = archive.readUInt16LE(cursor + 10); const compressedSize = archive.readUInt32LE(cursor + 20); const size = archive.readUInt32LE(cursor + 24); const nameLength = archive.readUInt16LE(cursor + 28); const extraLength = archive.readUInt16LE(cursor + 30); const commentLength = archive.readUInt16LE(cursor + 32); const localOffset = archive.readUInt32LE(cursor + 42); const name = archive.subarray(cursor + 46, cursor + 46 + nameLength).toString('utf8');
+    cursor += 46 + nameLength + extraLength + commentLength;
+    if (!include(name) || name.endsWith('/')) continue;
+    if ((flags & 1) !== 0 || ![0, 8].includes(method)) throw new Error(`Archive entry ${name} uses unsupported ZIP compression`);
+    if (size > 2 * 1024 * 1024 || total + size > 8 * 1024 * 1024) throw new Error('Archive text entries exceed the analysis limit');
+    if (localOffset + 30 > archive.length || archive.readUInt32LE(localOffset) !== 0x04034b50) throw new Error(`Archive entry ${name} has an invalid ZIP local header`);
+    const localNameLength = archive.readUInt16LE(localOffset + 26); const localExtraLength = archive.readUInt16LE(localOffset + 28); const dataOffset = localOffset + 30 + localNameLength + localExtraLength; const compressed = archive.subarray(dataOffset, dataOffset + compressedSize); const data = method === 0 ? compressed : zlib.inflateRawSync(compressed);
+    if (data.length !== size) throw new Error(`Archive entry ${name} has an invalid uncompressed size`);
+    result[name] = data.toString('utf8'); total += size;
+  }
+  return result;
+}
+
+module.exports = { safeFiles, parseIni, validateQuest, packageQuest, readZipTextEntries };
