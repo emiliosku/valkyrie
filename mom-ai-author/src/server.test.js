@@ -24,8 +24,7 @@ test('local HTTP mock flow produces a downloadable package', async (context) => 
   assert.equal(started.status, 201);
   const ready = await post(base, `/v1/interviews/${started.body.id}/answers`, { answerId: 'gothic' });
   assert.equal(ready.body.state, 'review');
-  const ratings = { hook: 4, atmosphere: 4, coherence: 4, agency: 4, pacing: 4, momFit: 5, finale: 4 };
-  const reviewed = await post(base, `/v1/interviews/${started.body.id}/review`, { approved: true, ratings });
+  const reviewed = await post(base, `/v1/interviews/${started.body.id}/review`, { approved: true });
   assert.equal(reviewed.body.approved, true);
   const generated = await post(base, `/v1/interviews/${started.body.id}/generate`, {});
   assert.equal(generated.status, 200);

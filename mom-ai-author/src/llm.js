@@ -70,7 +70,7 @@ function cool(candidate, error) {
 }
 async function complete(store, messages, options = {}) {
   if (options.mock) return { text: options.mockText(), provider: 'mock', model: 'mock', key: 'mock', fallbacks: [] };
-  const candidates = options.candidates || await providerCandidates(store, options.fetchImpl || fetch); if (!candidates.length) throw providerError('No configured verified-free provider model is available', 503);
+  const candidates = options.candidates || await providerCandidates(store, options.fetchImpl || fetch, options.stage); if (!candidates.length) throw providerError('No configured verified-free provider model is available', 503);
   const fallbacks = [];
   for (const candidate of candidates) {
     if (!options.ignoreCooldown && coolingDown(candidate)) { fallbacks.push({ provider: candidate.provider, model: candidate.model, reason: 'cooldown' }); continue; }

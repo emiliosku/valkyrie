@@ -73,4 +73,18 @@ function promptCatalog(catalog, maxPerType = 20) {
 }
 function contains(catalog, type, id) { return (catalog[type] || []).some((item) => item.id === id); }
 
-module.exports = { loadCatalog, selectedCatalog, promptCatalog, contains, MOM_ROOT };
+const GAME_TOKEN_RE = /^Token(Explore|Search|Interact|Clue|Sight|Darkness|Fire|Sewer|Trapdoor|Door|Wall|Secret|Barricade|Investigators)/;
+const NPC_SKIP_RE = /^Token(Common|Unique|Spell)/;
+function interviewCatalog(catalog) {
+  const monsterNames = [...new Set(catalog.monsters.map((m) => m.id.replace(/^Monster(Activation)?/, '').replace(/\d+$/, '')))].sort();
+  const tileGroups = {};
+  for (const t of catalog.tileSides) { const env = t.traits.sort().join('/') || 'general'; if (!tileGroups[env]) tileGroups[env] = []; tileGroups[env].push(t.id); }
+  const tiles = Object.entries(tileGroups).map(([env, ids]) => `${env}: ${ids.length}`);
+  const items = catalog.items.filter((i) => !i.id.startsWith('ItemSpell')).map((i) => i.id.replace(/^Item/, ''));
+  const spells = catalog.items.filter((i) => i.id.startsWith('ItemSpell')).map((i) => i.id.replace(/^ItemSpell/, ''));
+  const npcs = catalog.tokens.filter((t) => /^Token[A-Z][a-z]/.test(t.id) && !NPC_SKIP_RE.test(t.id) && !GAME_TOKEN_RE.test(t.id)).map((t) => t.id.replace(/^Token/, ''));
+  const gameTokens = [...new Set(catalog.tokens.filter((t) => GAME_TOKEN_RE.test(t.id)).map((t) => t.id.replace(/^Token/, '')))].sort();
+  return { packs: catalog.selectedPackIds, monsters: monsterNames, tiles, items, spells, npcs, gameTokens };
+}
+
+module.exports = { loadCatalog, selectedCatalog, promptCatalog, interviewCatalog, contains, MOM_ROOT };

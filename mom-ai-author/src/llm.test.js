@@ -1,5 +1,4 @@
 'use strict';
-process.env.OPENCODE_API_KEY = 'test-key';
 process.env.HF_TOKEN = 'hf-test-key';
 process.env.GROQ_API_KEY = 'groq-test-key';
 process.env.GEMINI_API_KEY = 'gemini-test-key';
@@ -8,21 +7,21 @@ process.env.OPENROUTER_API_KEY = 'openrouter-test-key';
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { complete, retryable } = require('./llm');
-const { modelsFor } = require('./policy');
-const zenCandidates = [{ provider: 'zen', model: 'nemotron-3-ultra-free', key: 'zen/nemotron-3-ultra-free' }, { provider: 'zen', model: 'hy3-free', key: 'zen/hy3-free' }];
+const { modelsFor, providerCandidates } = require('./policy');
+const groqCandidates = [{ provider: 'groq', model: 'openai/gpt-oss-120b', key: 'groq/openai/gpt-oss-120b' }, { provider: 'groq', model: 'openai/gpt-oss-20b', key: 'groq/openai/gpt-oss-20b' }];
 
 test('tries the next free model after a temporary failure', async () => {
   const attempted = [];
   const fetchImpl = async (url, options = {}) => {
     const model = JSON.parse(options.body).model;
     attempted.push(model);
-    if (model === 'nemotron-3-ultra-free') return { ok: false, status: 429 };
+    if (model === 'openai/gpt-oss-120b') return { ok: false, status: 429 };
     return { ok: true, json: async () => ({ choices: [{ message: { content: '{"state":"question"}' } }] }) };
   };
-  const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates: zenCandidates, ignoreCooldown: true, fetchImpl, maxTokens: 100 });
-  assert.deepEqual(attempted, ['nemotron-3-ultra-free', 'hy3-free']);
-  assert.equal(result.model, 'hy3-free');
-  assert.equal(result.fallbacks[0].model, 'nemotron-3-ultra-free');
+  const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates: groqCandidates, ignoreCooldown: true, fetchImpl, maxTokens: 100 });
+  assert.deepEqual(attempted, ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']);
+  assert.equal(result.model, 'openai/gpt-oss-20b');
+  assert.equal(result.fallbacks[0].model, 'openai/gpt-oss-120b');
 });
 
 test('falls through when a model ignores the response schema', async () => {
@@ -30,12 +29,12 @@ test('falls through when a model ignores the response schema', async () => {
   const fetchImpl = async (url, options = {}) => {
     const model = JSON.parse(options.body).model;
     attempted.push(model);
-    const content = model === 'nemotron-3-ultra-free' ? 'I will ask a question next.' : '{"state":"question"}';
+    const content = model === 'openai/gpt-oss-120b' ? 'I will ask a question next.' : '{"state":"question"}';
     return { ok: true, json: async () => ({ choices: [{ message: { content } }] }) };
   };
-  const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates: zenCandidates, ignoreCooldown: true, fetchImpl, accept: (text) => text.startsWith('{') });
-  assert.deepEqual(attempted, ['nemotron-3-ultra-free', 'hy3-free']);
-  assert.equal(result.model, 'hy3-free');
+  const result = await complete({}, [{ role: 'user', content: 'test' }], { candidates: groqCandidates, ignoreCooldown: true, fetchImpl, accept: (text) => text.startsWith('{') });
+  assert.deepEqual(attempted, ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']);
+  assert.equal(result.model, 'openai/gpt-oss-20b');
 });
 
 test('fails over between configured hosted providers', async () => {
@@ -103,3 +102,24 @@ test('uses the quality-oriented Ollama Cloud cold-start order', () => {
 });
 
 test("uses OpenRouter's free-only router by default", () => assert.deepEqual(modelsFor('openrouter'), ['openrouter/free']));
+
+test('trims Groq to capable models only', () => assert.deepEqual(modelsFor('groq'), ['openai/gpt-oss-120b', 'openai/gpt-oss-20b']));
+
+test('interview stage routes to Groq first', async () => {
+  const candidates = await providerCandidates({}, async (url) => {
+    if (url.includes('/api/tags')) return { ok: true, json: async () => ({ models: [{ name: 'nemotron-3-ultra' }] }) };
+    return { ok: false, status: 404 };
+  }, 'interview');
+  const providers = candidates.map((c) => c.provider);
+  assert.equal(providers[0], 'groq');
+  assert.ok(providers.includes('ollama'));
+});
+
+test('generation stage routes to Ollama first', async () => {
+  const candidates = await providerCandidates({}, async (url) => {
+    if (url.includes('/api/tags')) return { ok: true, json: async () => ({ models: [{ name: 'nemotron-3-ultra' }] }) };
+    return { ok: false, status: 404 };
+  }, 'generation');
+  const providers = candidates.map((c) => c.provider);
+  assert.equal(providers[0], 'ollama');
+});

@@ -25,8 +25,8 @@ test('mock interview produces a valid quest after review', async () => {
   assert.equal(first.state, 'question');
   const ready = await answer(first.id, 'gothic', '', store);
   assert.equal(ready.state, 'review');
-  await review(first.id, { approved: true, ratings: { hook: 4, atmosphere: 4, coherence: 4, agency: 4, pacing: 4, momFit: 5, finale: 4 } }, store, 1);
-  const result = await generate(first.id, store, 1);
+  await review(first.id, { approved: true }, store);
+  const result = await generate(first.id, store);
   assert.deepEqual(result.validation.errors, []);
   assert.ok(result.validation.files['quest.ini']);
 });
