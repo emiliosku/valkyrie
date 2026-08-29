@@ -8,10 +8,17 @@ const store = require('./store');
 const TARGET_PACKS = ['MoMBase', 'PotS', 'SoA'];
 const PORT_TYPES = new Set(['open', 'door', 'secret']);
 const EDGES = new Set(['north', 'east', 'south', 'west']);
+const ROTATIONS = [0, 90, 180, 270];
 // Footprints are named height x width to match the imported tile artwork.
 const SHAPES = { '1x2': { width: 2, height: 1 }, '2x2': { width: 2, height: 2 }, '2x3': { width: 3, height: 2 }, '4x8': { width: 8, height: 4 } };
 
 function defaultImportRoot() { return path.join(os.homedir(), '.config', 'Valkyrie', 'MoM', 'import'); }
+function rotatePort(port, rotation) {
+  if (rotation === 0) return { ...port };
+  if (rotation === 90) return { ...port, edge: { north: 'east', east: 'south', south: 'west', west: 'north' }[port.edge], offset: ['east', 'west'].includes(port.edge) ? 1 - port.offset : port.offset };
+  if (rotation === 180) return { ...port, edge: { north: 'south', east: 'west', south: 'north', west: 'east' }[port.edge], offset: 1 - port.offset };
+  return { ...port, edge: { north: 'west', east: 'north', south: 'east', west: 'south' }[port.edge], offset: ['east', 'west'].includes(port.edge) ? port.offset : 1 - port.offset };
+}
 function createTileStore({ importRoot = process.env.MOM_AI_IMPORT_ROOT || defaultImportRoot(), geometryFile = process.env.MOM_AI_GEOMETRY_FILE || path.join(store.dataDir, 'tile-ports.json'), connectionFile = process.env.MOM_AI_CONNECTION_FILE || path.join(store.dataDir, 'tile-connections.json') } = {}) {
   const root = path.resolve(importRoot); const geometry = path.resolve(geometryFile); const connections = path.resolve(connectionFile);
   function imagePath(tile) {
@@ -60,11 +67,11 @@ function createTileStore({ importRoot = process.env.MOM_AI_IMPORT_ROOT || defaul
     const oppositeEdges = [['north', 'south'], ['south', 'north'], ['east', 'west'], ['west', 'east']]; const results = [];
     for (let index = 0; index < candidates.length; index++) for (let otherIndex = index + 1; otherIndex < candidates.length; otherIndex++) {
       const tileA = candidates[index]; const tileB = candidates[otherIndex]; if (tileA.reverseId === tileB.id || tileB.reverseId === tileA.id) continue;
-      for (const [edgeA, edgeB] of oppositeEdges) {
+      for (const rotationB of ROTATIONS) for (const [edgeA, edgeB] of oppositeEdges) {
         const portsA = annotations[tileA.id].ports.filter((port) => port.edge === edgeA && (port.type === 'door' || port.type === 'open'));
-        const portsB = annotations[tileB.id].ports.filter((port) => port.edge === edgeB && (port.type === 'door' || port.type === 'open'));
+        const portsB = annotations[tileB.id].ports.map((port) => rotatePort(port, rotationB)).filter((port) => port.edge === edgeB && (port.type === 'door' || port.type === 'open'));
         const matchingPorts = portsA.flatMap((portA) => portsB.filter((portB) => portA.type === portB.type && Math.abs(portA.offset - (1 - portB.offset)) < 0.0001).map((portB) => ({ portA, portB })));
-        if (matchingPorts.length) results.push({ key: `${tileA.id}:${edgeA}-${tileB.id}:${edgeB}`, tileA: { id: tileA.id, packIds: tileA.packIds, shape: annotations[tileA.id].shape }, edgeA, tileB: { id: tileB.id, packIds: tileB.packIds, shape: annotations[tileB.id].shape }, edgeB, matchingPorts });
+        if (matchingPorts.length) results.push({ key: `${tileA.id}:0:${edgeA}-${tileB.id}:${rotationB}:${edgeB}`, tileA: { id: tileA.id, packIds: tileA.packIds, shape: annotations[tileA.id].shape, rotation: 0 }, edgeA, tileB: { id: tileB.id, packIds: tileB.packIds, shape: annotations[tileB.id].shape, rotation: rotationB }, edgeB, matchingPorts });
       }
     }
     return results.sort((first, second) => first.key.localeCompare(second.key));
@@ -79,4 +86,4 @@ function createTileStore({ importRoot = process.env.MOM_AI_IMPORT_ROOT || defaul
   return { geometryFile: geometry, connectionFile: connections, list, image, load, setPorts, connectionCandidates, loadConnections, saveConnection };
 }
 
-module.exports = { TARGET_PACKS, PORT_TYPES, SHAPES, createTileStore };
+module.exports = { TARGET_PACKS, PORT_TYPES, ROTATIONS, SHAPES, rotatePort, createTileStore };

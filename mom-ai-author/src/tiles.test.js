@@ -6,7 +6,7 @@ const path = require('path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { loadCatalog } = require('./catalog');
-const { createTileStore } = require('./tiles');
+const { createTileStore, rotatePort } = require('./tiles');
 
 function fixture() {
   const root = fs.mkdtempSync(path.join(os.tmpdir(), 'mom-import-')); const geometryFile = path.join(root, 'tile-ports.json'); const connectionFile = path.join(root, 'tile-connections.json'); const catalog = loadCatalog(); const tile = catalog.tileSides.find((item) => item.id === 'TileSideLobby'); const relative = tile.imageRef.replace(/^"\{import\}\//, '').replace(/"$/, ''); const image = path.join(root, `${relative}.dds`);
@@ -63,10 +63,30 @@ test('lists compatible connections and persists decisions', () => {
   store.setPorts(catalog, 'TileB', { shape: '1x2', ports: [{ type: 'door', edge: 'north', offset: 0.75 }] });
   store.setPorts(catalog, 'TileC', { shape: '1x2', ports: [{ type: 'door', edge: 'north', offset: 0.75 }] });
   const candidates = store.connectionCandidates(catalog, ['MoMBase']);
-  assert.deepEqual(candidates.map((candidate) => candidate.key), ['TileA:south-TileB:north']);
-  assert.equal(candidates[0].matchingPorts.length, 1);
-  assert.equal(store.saveConnection(catalog, candidates[0].key, { status: 'ok' }).status, 'ok');
-  assert.equal(store.loadConnections().connections[candidates[0].key].status, 'ok');
+  const expected = candidates.find((candidate) => candidate.key === 'TileA:0:south-TileB:0:north');
+  assert.ok(expected);
+  assert.equal(expected.matchingPorts.length, 1);
+  assert.ok(!candidates.some((candidate) => candidate.key.includes('TileA') && candidate.key.includes('TileC')));
+  assert.equal(store.saveConnection(catalog, expected.key, { status: 'ok' }).status, 'ok');
+  assert.equal(store.loadConnections().connections[expected.key].status, 'ok');
   assert.throws(() => store.saveConnection(catalog, 'not-a-candidate', { status: 'ok' }), /Invalid connection decision/);
-  assert.throws(() => store.saveConnection(catalog, candidates[0].key, { status: 'maybe' }), /Invalid connection decision/);
+  assert.throws(() => store.saveConnection(catalog, expected.key, { status: 'maybe' }), /Invalid connection decision/);
+});
+
+test('includes candidates that require rotating tile B', () => {
+  const { root, store } = fixture();
+  const catalog = { tileSides: [{ id: 'TileA', packIds: ['MoMBase'], imageRef: '"{import}/img/a"' }, { id: 'TileB', packIds: ['MoMBase'], imageRef: '"{import}/img/b"' }] };
+  for (const name of ['a', 'b']) { const image = path.join(root, 'img', `${name}.dds`); fs.mkdirSync(path.dirname(image), { recursive: true }); fs.writeFileSync(image, 'DDS '); }
+  store.setPorts(catalog, 'TileA', { shape: '1x2', ports: [{ type: 'door', edge: 'south', offset: 0.25 }] });
+  store.setPorts(catalog, 'TileB', { shape: '1x2', ports: [{ type: 'door', edge: 'south', offset: 0.25 }] });
+  const candidates = store.connectionCandidates(catalog, ['MoMBase']);
+  assert.deepEqual(candidates.map((candidate) => candidate.key), ['TileA:0:south-TileB:180:north']);
+});
+
+test('rotates port edges and offsets clockwise', () => {
+  assert.deepEqual(rotatePort({ edge: 'north', offset: 0.25 }, 90), { edge: 'east', offset: 0.25 });
+  assert.deepEqual(rotatePort({ edge: 'east', offset: 0.25 }, 90), { edge: 'south', offset: 0.75 });
+  assert.deepEqual(rotatePort({ edge: 'north', offset: 0.25 }, 180), { edge: 'south', offset: 0.75 });
+  assert.deepEqual(rotatePort({ edge: 'north', offset: 0.25 }, 270), { edge: 'west', offset: 0.75 });
+  assert.deepEqual(rotatePort({ edge: 'east', offset: 0.25 }, 270), { edge: 'north', offset: 0.25 });
 });
