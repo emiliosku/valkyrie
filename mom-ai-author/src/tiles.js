@@ -65,12 +65,12 @@ function createTileStore({ importRoot = process.env.MOM_AI_IMPORT_ROOT || defaul
     const annotations = load().tiles;
     const candidates = catalog.tileSides.filter((item) => item.packIds.some((pack) => selected.has(pack)) && annotations[item.id] && imagePath(item)).sort((first, second) => first.id.localeCompare(second.id));
     const oppositeEdges = [['north', 'south'], ['south', 'north'], ['east', 'west'], ['west', 'east']]; const results = [];
-    for (let index = 0; index < candidates.length; index++) for (let otherIndex = index + 1; otherIndex < candidates.length; otherIndex++) {
-      const tileA = candidates[index]; const tileB = candidates[otherIndex]; if (tileA.reverseId === tileB.id || tileB.reverseId === tileA.id) continue;
+    for (let index = 0; index < candidates.length; index++) for (let otherIndex = index; otherIndex < candidates.length; otherIndex++) {
+      const tileA = candidates[index]; const tileB = candidates[otherIndex]; if (tileA.id !== tileB.id && (tileA.reverseId === tileB.id || tileB.reverseId === tileA.id)) continue;
       for (const rotationB of ROTATIONS) for (const [edgeA, edgeB] of oppositeEdges) {
         const portsA = annotations[tileA.id].ports.filter((port) => port.edge === edgeA && (port.type === 'door' || port.type === 'open'));
         const portsB = annotations[tileB.id].ports.map((port) => rotatePort(port, rotationB)).filter((port) => port.edge === edgeB && (port.type === 'door' || port.type === 'open'));
-        const matchingPorts = portsA.flatMap((portA) => portsB.filter((portB) => portA.type === portB.type && Math.abs(portA.offset - (1 - portB.offset)) < 0.0001).map((portB) => ({ portA, portB })));
+        const matchingPorts = portsA.flatMap((portA) => portsB.filter((portB) => portA.type === portB.type).map((portB) => ({ portA, portB })));
         if (matchingPorts.length) results.push({ key: `${tileA.id}:0:${edgeA}-${tileB.id}:${rotationB}:${edgeB}`, tileA: { id: tileA.id, packIds: tileA.packIds, shape: annotations[tileA.id].shape, rotation: 0 }, edgeA, tileB: { id: tileB.id, packIds: tileB.packIds, shape: annotations[tileB.id].shape, rotation: rotationB }, edgeB, matchingPorts });
       }
     }

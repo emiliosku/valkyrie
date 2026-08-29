@@ -42,7 +42,7 @@ The page reads only tile artwork referenced by Valkyrie's catalog and decodes it
 
 ## Tile connection review
 
-Open `http://127.0.0.1:3000/connector` to review all port-compatible, edge-specific links. The reviewer filters by Base, PotS, and SoA; excludes opposite sides of the same physical tile; and shows only door-to-door or open-passage-to-open-passage links. Tile B is considered at `0`, `90`, `180`, and `270` degrees relative to tile A, then both artworks are aligned at their matching wall. Different wall lengths remain available for manual review. Decisions are stored in `tile-connections.json` under `MOM_AI_DATA_DIR`; geometric placement validation is deliberately deferred.
+Open `http://127.0.0.1:3000/connector` to review all type-compatible, edge-specific links. The reviewer filters by Base, PotS, and SoA and shows only door-to-door or open-passage-to-open-passage links; port offsets do not filter candidates because geometry is reviewed separately. Tile B is considered at `0`, `90`, `180`, and `270` degrees relative to tile A, including another copy of the same tile side. Both artworks are aligned at their matching wall, while different wall lengths remain available for manual review. Decisions are stored in `tile-connections.json` under `MOM_AI_DATA_DIR`; geometric placement validation is deliberately deferred.
 
 Scenarios are investigator-agnostic: investigators are selected by the player before the game begins. The story must not reference, require, or assume any specific investigator. Named NPCs (witnesses, allies, antagonists, victims) may be introduced for storytelling purposes.
 
