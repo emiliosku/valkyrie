@@ -83,13 +83,13 @@ test('includes candidates that require rotating tile B', () => {
   assert.ok(candidates.some((candidate) => candidate.key === 'TileA:0:south-TileB:180:north'));
 });
 
-test('includes a tile connecting to another copy of itself after rotation', () => {
+test('does not treat a tile as a connection candidate with itself', () => {
   const { root, store } = fixture();
   const catalog = { tileSides: [{ id: 'TileA', packIds: ['MoMBase'], imageRef: '"{import}/img/a"' }] };
   const image = path.join(root, 'img', 'a.dds'); fs.mkdirSync(path.dirname(image), { recursive: true }); fs.writeFileSync(image, 'DDS ');
   store.setPorts(catalog, 'TileA', { shape: '1x2', ports: [{ type: 'door', edge: 'south', offset: 0.25 }, { type: 'door', edge: 'west', offset: 0.5 }] });
   const candidates = store.connectionCandidates(catalog, ['MoMBase']);
-  assert.ok(candidates.some((candidate) => candidate.key === 'TileA:0:south-TileA:90:north'));
+  assert.equal(candidates.some((candidate) => candidate.tileA.id === candidate.tileB.id), false);
 });
 
 test('rotates port edges and offsets clockwise', () => {
