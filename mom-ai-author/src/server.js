@@ -30,6 +30,7 @@ async function route(req, res) {
   if (req.method === 'GET' && url.pathname === '/annotator.js') return text(res, 200, fs.readFileSync(path.join(publicDir, 'annotator.js')), 'application/javascript; charset=utf-8');
   if (req.method === 'GET' && url.pathname === '/connector') return text(res, 200, fs.readFileSync(path.join(publicDir, 'connector.html')), 'text/html; charset=utf-8');
   if (req.method === 'GET' && url.pathname === '/connector.js') return text(res, 200, fs.readFileSync(path.join(publicDir, 'connector.js')), 'application/javascript; charset=utf-8');
+  if (req.method === 'GET' && url.pathname === '/connector-layout.js') return text(res, 200, fs.readFileSync(path.join(publicDir, 'connector-layout.js')), 'application/javascript; charset=utf-8');
   if (req.method === 'GET' && url.pathname === '/v1/health') return json(res, 200, { protocol: 1, service: 'mom-ai-author' });
   if (req.method === 'GET' && url.pathname === '/v1/catalog') return json(res, 200, loadCatalog());
   if (req.method === 'GET' && url.pathname === '/v1/tile-ports') return json(res, 200, tiles.load());

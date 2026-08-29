@@ -24,6 +24,9 @@ test('local HTTP mock flow produces a downloadable package', async (context) => 
   const connector = await fetch(`${base}/connector`);
   assert.equal(connector.status, 200);
   assert.match(await connector.text(), /Tile Connection Reviewer/);
+  const connectorLayout = await fetch(`${base}/connector-layout.js`);
+  assert.equal(connectorLayout.status, 200);
+  assert.match(await connectorLayout.text(), /function placements/);
   const tilePorts = await fetch(`${base}/v1/tile-ports`);
   assert.equal(tilePorts.status, 200);
   assert.equal(typeof (await tilePorts.json()).tiles, 'object');

@@ -16,6 +16,7 @@
     <section class="panel draft"><header class="connection-heading"><div><p id="candidateType" class="eyebrow">Connection candidate</p><h2 id="candidateTitle">Loading...</h2></div><p id="candidateIndex"></p></header><div class="canvas-wrap"><p id="empty" class="empty">Loading tile artwork...</p><canvas id="connectionCanvas" class="hidden"></canvas></div><p class="legend"><span style="--swatch:#75d5dc">Open passage</span><span style="--swatch:#e4b562">Door</span><span style="--swatch:#f0eadc">Shared wall</span></p></section>
     <aside class="panel protocol"><p class="eyebrow">Decision desk</p><h2>Does this link work?</h2><dl id="details" class="connection-details"></dl><p id="decision" class="decision" data-status="">Unreviewed</p><div class="actions"><button id="approve" class="ok">OK</button><button id="reject" class="reject">Not okay</button></div><div class="nav"><button id="previous">Previous</button><button id="skip">Skip</button><button id="next">Next</button></div><ol><li>Inspect the shared wall and highlighted matching ports.</li><li>Approve only links that make sense as a board connection.</li><li>Geometry and placement validation are handled later.</li></ol><p id="status" class="status"></p></aside>
   </main>
+  <script src="connector-layout.js"></script>
   <script src="connector.js"></script>
 </body>
 </html>
